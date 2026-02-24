@@ -1,0 +1,20 @@
+{
+  "name": "toolkit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Collection of CLI tools for Schema Labs operations",
+  "scripts": {
+    "poster-qr": "tsx tools/poster-qr.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/qrcode": "^1.5.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.33.5"
+  }
+}
