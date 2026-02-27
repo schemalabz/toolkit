@@ -14,7 +14,7 @@
  * {"type":"error","message":"..."} and the process exits with code 1.
  */
 
-import { detectMarker, generatePosters } from './core.js';
+import { detectMarker, generatePosters, generatePreview } from './core.js';
 import type { PosterConfig, ProgressEvent } from './types.js';
 
 function emit(event: ProgressEvent) {
@@ -50,6 +50,20 @@ async function main() {
 
       const result = await detectMarker(templatePath, markerColor, tolerance);
       process.stdout.write(JSON.stringify({ type: 'marker-result', ...result }) + '\n');
+      break;
+    }
+
+    case 'preview': {
+      const result = await generatePreview({
+        templatePath: input.templatePath as string,
+        detect: input.detect as boolean | undefined,
+        markerColor: input.markerColor as string | undefined,
+        qrX: input.qrX as number | undefined,
+        qrY: input.qrY as number | undefined,
+        qrSize: input.qrSize as number | undefined,
+        baseUrl: input.baseUrl as string | undefined,
+      });
+      process.stdout.write(JSON.stringify({ type: 'preview', ...result }) + '\n');
       break;
     }
 

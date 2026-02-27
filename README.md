@@ -44,10 +44,29 @@ The script needs a PNG template with a magenta placeholder where the QR code sho
 
 The magenta square is a marker — the script will detect its position and size automatically, and replace it with unique QR codes.
 
-#### Running the script
+#### Desktop app
+
+A Tauri-based desktop app provides a step-by-step wizard UI:
+
+1. **Template** — pick your template image and set the marker color
+2. **QR Placement** — auto-detects the marker, shows a live preview with a sample QR composited onto the template. Adjust x/y/size and the preview updates in real time.
+3. **Settings** — configure URL parameters, batch counts, and ID settings
+4. **Generate** — pick output directory, generate or dry-run, with progress bar and log
 
 ```bash
-nix develop --command npx tsx tools/poster-qr.ts \
+nix develop --command npm run app:dev
+```
+
+To build a distributable binary:
+
+```bash
+nix develop --command npm run app:build
+```
+
+#### Running the CLI
+
+```bash
+nix develop --command npm run poster-qr -- \
   --template=poster.png \
   --detect \
   --base-url=https://yoursite.com \
@@ -80,7 +99,7 @@ Each QR code encodes:
 If you've already printed 50 posters and need 30 more:
 
 ```bash
-nix develop --command npx tsx tools/poster-qr.ts \
+nix develop --command npm run poster-qr -- \
   --template=poster.png \
   --detect \
   --base-url=https://yoursite.com \
@@ -117,8 +136,8 @@ nix develop --command npx tsx tools/poster-qr.ts \
 
 #### Interactive mode
 
-Run without flags and the script will prompt you for each required value:
+Run without flags and the CLI will prompt you for each required value:
 
 ```bash
-nix develop --command npx tsx tools/poster-qr.ts
+nix develop --command npm run poster-qr
 ```

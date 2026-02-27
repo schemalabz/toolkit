@@ -136,6 +136,69 @@ function computeIdLabelPosition(
   return { x, y, pdfFontSize };
 }
 
+export async function generatePreview(opts: {
+  templatePath: string;
+  detect?: boolean;
+  markerColor?: string;
+  qrX?: number;
+  qrY?: number;
+  qrSize?: number;
+  baseUrl?: string;
+  maxWidth?: number;
+}): Promise<{
+  imageBase64: string;
+  width: number;
+  height: number;
+  qrX: number;
+  qrY: number;
+  qrSize: number;
+  detected: boolean;
+}> {
+  const maxWidth = opts.maxWidth ?? 600;
+  const image = await Jimp.read(opts.templatePath);
+  const width = image.width;
+  const height = image.height;
+
+  let qrX = opts.qrX ?? 0;
+  let qrY = opts.qrY ?? 0;
+  let qrSize = opts.qrSize ?? 0;
+  let detected = false;
+
+  if (opts.detect) {
+    const marker = await detectMarker(opts.templatePath, opts.markerColor ?? 'FF00FF');
+    qrX = marker.x;
+    qrY = marker.y;
+    qrSize = marker.size;
+    detected = true;
+  }
+
+  if (qrSize > 0) {
+    const sampleUrl = opts.baseUrl
+      ? buildUrl(opts.baseUrl, 'SAMPLE', 'qr', '')
+      : 'https://example.com/?utm_content=SAMPLE';
+    const qrBuffer = await QRCode.toBuffer(sampleUrl, {
+      type: 'png',
+      width: qrSize,
+      margin: 0,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#000000', light: '#FFFFFF' },
+    });
+    const qrImage = await Jimp.fromBuffer(qrBuffer);
+    const whiteRect = new Jimp({ width: qrSize, height: qrSize, color: 0xFFFFFFFF });
+    image.composite(whiteRect, qrX, qrY);
+    image.composite(qrImage, qrX, qrY);
+  }
+
+  if (image.width > maxWidth) {
+    image.resize({ w: maxWidth });
+  }
+
+  const pngBuffer = await image.getBuffer('image/png');
+  const imageBase64 = Buffer.from(pngBuffer).toString('base64');
+
+  return { imageBase64, width, height, qrX, qrY, qrSize, detected };
+}
+
 export async function generatePosters(
   config: PosterConfig,
   onProgress: (event: ProgressEvent) => void,

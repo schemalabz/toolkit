@@ -10,58 +10,73 @@
   <div id="app">
     <h1>Poster QR Generator</h1>
 
-    <form id="config-form">
-      <!-- Template -->
-      <fieldset>
-        <legend>Template</legend>
-        <div class="field">
-          <label for="template-path">Poster template image</label>
-          <div class="file-picker">
-            <input type="text" id="template-path" readonly placeholder="Select a PNG file..." />
-            <button type="button" id="pick-template">Browse</button>
-          </div>
-        </div>
-      </fieldset>
+    <!-- Wizard navigation -->
+    <div id="wizard-nav">
+      <div class="wizard-steps">
+        <div class="wizard-step active" data-step="1"><span class="step-num">1</span> Template</div>
+        <div class="wizard-step" data-step="2"><span class="step-num">2</span> QR Placement</div>
+        <div class="wizard-step" data-step="3"><span class="step-num">3</span> Settings</div>
+        <div class="wizard-step" data-step="4"><span class="step-num">4</span> Generate</div>
+      </div>
+    </div>
 
-      <!-- QR Placement -->
-      <fieldset>
-        <legend>QR Placement</legend>
-        <div class="field">
-          <div class="radio-group">
-            <label><input type="radio" name="qr-mode" value="detect" checked /> Auto-detect from marker</label>
-            <label><input type="radio" name="qr-mode" value="manual" /> Manual coordinates</label>
-          </div>
+    <!-- Step 1: Template -->
+    <div class="wizard-panel active" data-step="1">
+      <p class="step-hint">Prepare a poster template image (PNG/JPG) with a solid-color rectangle where the QR code should go. Default marker color: magenta (#FF00FF).</p>
+      <div class="field">
+        <label for="template-path">Poster template image</label>
+        <div class="file-picker">
+          <input type="text" id="template-path" readonly placeholder="Select a PNG file..." />
+          <button type="button" id="pick-template">Browse</button>
         </div>
-        <div id="marker-fields">
-          <div class="field">
-            <label for="marker-color">Marker color (hex)</label>
-            <input type="text" id="marker-color" value="FF00FF" placeholder="FF00FF" />
-          </div>
-        </div>
-        <div id="manual-fields" class="hidden">
-          <div class="field-row">
-            <div class="field">
-              <label for="qr-x">X (px)</label>
-              <input type="number" id="qr-x" min="0" />
-            </div>
-            <div class="field">
-              <label for="qr-y">Y (px)</label>
-              <input type="number" id="qr-y" min="0" />
-            </div>
-            <div class="field">
-              <label for="qr-size">Size (px)</label>
-              <input type="number" id="qr-size" min="10" />
-            </div>
-          </div>
-        </div>
-      </fieldset>
+      </div>
+      <div class="field">
+        <label for="marker-color">Marker color (hex)</label>
+        <input type="text" id="marker-color" value="FF00FF" placeholder="FF00FF" />
+      </div>
+      <div class="wizard-actions">
+        <span></span>
+        <button type="button" id="btn-next-1" class="btn-next" disabled>Next</button>
+      </div>
+    </div>
 
-      <!-- URL Settings -->
+    <!-- Step 2: QR Placement -->
+    <div class="wizard-panel" data-step="2">
+      <div id="preview-container">
+        <img id="preview-img" alt="Template preview" />
+        <div id="preview-loading" class="hidden">Generating preview...</div>
+      </div>
+      <p id="detect-status"></p>
+      <div class="field-row">
+        <div class="field">
+          <label for="qr-x">X (px)</label>
+          <input type="number" id="qr-x" min="0" />
+        </div>
+        <div class="field">
+          <label for="qr-y">Y (px)</label>
+          <input type="number" id="qr-y" min="0" />
+        </div>
+        <div class="field">
+          <label for="qr-size">Size (px)</label>
+          <input type="number" id="qr-size" min="10" />
+        </div>
+      </div>
+      <div class="field" style="margin-top: 4px;">
+        <button type="button" id="btn-redetect" class="btn-secondary">Detect</button>
+      </div>
+      <div class="wizard-actions">
+        <button type="button" id="btn-back-2" class="btn-back">Back</button>
+        <button type="button" id="btn-next-2" class="btn-next">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Settings -->
+    <div class="wizard-panel" data-step="3">
       <fieldset>
         <legend>URL Settings</legend>
         <div class="field">
           <label for="base-url">Base URL</label>
-          <input type="url" id="base-url" required placeholder="https://example.com/page" />
+          <input type="url" id="base-url" placeholder="https://example.com/page" />
         </div>
         <div class="field-row">
           <div class="field">
@@ -74,8 +89,6 @@
           </div>
         </div>
       </fieldset>
-
-      <!-- Batch Counts -->
       <fieldset>
         <legend>Batch Counts</legend>
         <div class="field-row">
@@ -89,8 +102,6 @@
           </div>
         </div>
       </fieldset>
-
-      <!-- ID Settings -->
       <fieldset>
         <legend>ID Settings</legend>
         <div class="field-row">
@@ -108,37 +119,39 @@
           </div>
         </div>
       </fieldset>
+      <div class="wizard-actions">
+        <button type="button" id="btn-back-3" class="btn-back">Back</button>
+        <button type="button" id="btn-next-3" class="btn-next">Next</button>
+      </div>
+    </div>
 
-      <!-- Output -->
-      <fieldset>
-        <legend>Output</legend>
-        <div class="field">
-          <label for="out-dir">Output directory</label>
-          <div class="file-picker">
-            <input type="text" id="out-dir" readonly placeholder="Select output folder..." />
-            <button type="button" id="pick-outdir">Browse</button>
-          </div>
+    <!-- Step 4: Generate -->
+    <div class="wizard-panel" data-step="4">
+      <div class="field">
+        <label for="out-dir">Output directory</label>
+        <div class="file-picker">
+          <input type="text" id="out-dir" readonly placeholder="Select output folder..." />
+          <button type="button" id="pick-outdir">Browse</button>
         </div>
-      </fieldset>
-
-      <!-- Actions -->
+      </div>
       <div class="actions">
-        <button type="submit" id="btn-generate">Generate Posters</button>
+        <button type="button" id="btn-generate">Generate Posters</button>
         <button type="button" id="btn-dryrun">Dry Run</button>
       </div>
-    </form>
-
-    <!-- Progress -->
-    <div id="progress-section" class="hidden">
-      <h2>Progress</h2>
-      <div class="progress-bar-container">
-        <div class="progress-bar" id="progress-bar"></div>
+      <div id="progress-section" class="hidden">
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <p id="progress-text"></p>
+        <pre id="log"></pre>
+        <div id="output-links" class="hidden">
+          <h3>Output Files</h3>
+          <div id="output-files"></div>
+        </div>
       </div>
-      <p id="progress-text"></p>
-      <pre id="log"></pre>
-      <div id="output-links" class="hidden">
-        <h3>Output Files</h3>
-        <div id="output-files"></div>
+      <div class="wizard-actions">
+        <button type="button" id="btn-back-4" class="btn-back">Back</button>
+        <span></span>
       </div>
     </div>
   </div>
