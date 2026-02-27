@@ -2,3 +2,9 @@ node_modules/
 dist/
 qr-output/
 *.pdf
+
+# Tauri app
+app/src-tauri/binaries/
+app/src-tauri/target/
+app/src-tauri/gen/
+app/dist/

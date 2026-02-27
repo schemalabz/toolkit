@@ -1,0 +1,65 @@
+name: Build Desktop App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            bun-target: bun-darwin-arm64
+          - platform: macos-13
+            target: x86_64-apple-darwin
+            bun-target: bun-darwin-x64
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install app dependencies
+        run: cd app && npm ci
+
+      - name: Build sidecar
+        run: |
+          mkdir -p app/src-tauri/binaries
+          bun build --compile \
+            --target=${{ matrix.bun-target }} \
+            tools/poster-qr/sidecar.ts \
+            --outfile app/src-tauri/binaries/poster-qr-sidecar-${{ matrix.target }}
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: app
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Poster QR ${{ github.ref_name }}'
+          releaseBody: 'Download the .dmg for your Mac architecture.'
+          releaseDraft: true

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Poster QR Generator</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <h1>Poster QR Generator</h1>
+
+    <form id="config-form">
+      <!-- Template -->
+      <fieldset>
+        <legend>Template</legend>
+        <div class="field">
+          <label for="template-path">Poster template image</label>
+          <div class="file-picker">
+            <input type="text" id="template-path" readonly placeholder="Select a PNG file..." />
+            <button type="button" id="pick-template">Browse</button>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- QR Placement -->
+      <fieldset>
+        <legend>QR Placement</legend>
+        <div class="field">
+          <div class="radio-group">
+            <label><input type="radio" name="qr-mode" value="detect" checked /> Auto-detect from marker</label>
+            <label><input type="radio" name="qr-mode" value="manual" /> Manual coordinates</label>
+          </div>
+        </div>
+        <div id="marker-fields">
+          <div class="field">
+            <label for="marker-color">Marker color (hex)</label>
+            <input type="text" id="marker-color" value="FF00FF" placeholder="FF00FF" />
+          </div>
+        </div>
+        <div id="manual-fields" class="hidden">
+          <div class="field-row">
+            <div class="field">
+              <label for="qr-x">X (px)</label>
+              <input type="number" id="qr-x" min="0" />
+            </div>
+            <div class="field">
+              <label for="qr-y">Y (px)</label>
+              <input type="number" id="qr-y" min="0" />
+            </div>
+            <div class="field">
+              <label for="qr-size">Size (px)</label>
+              <input type="number" id="qr-size" min="10" />
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- URL Settings -->
+      <fieldset>
+        <legend>URL Settings</legend>
+        <div class="field">
+          <label for="base-url">Base URL</label>
+          <input type="url" id="base-url" required placeholder="https://example.com/page" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="campaign">Campaign (utm_campaign)</label>
+            <input type="text" id="campaign" placeholder="summer25" />
+          </div>
+          <div class="field">
+            <label for="source">Source (utm_source)</label>
+            <input type="text" id="source" value="qr" placeholder="qr" />
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Batch Counts -->
+      <fieldset>
+        <legend>Batch Counts</legend>
+        <div class="field-row">
+          <div class="field">
+            <label for="a3-count">A3 posters</label>
+            <input type="number" id="a3-count" min="0" value="0" />
+          </div>
+          <div class="field">
+            <label for="a4-count">A4 posters</label>
+            <input type="number" id="a4-count" min="0" value="0" />
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- ID Settings -->
+      <fieldset>
+        <legend>ID Settings</legend>
+        <div class="field-row">
+          <div class="field">
+            <label for="start-number">Start number</label>
+            <input type="number" id="start-number" min="1" value="1" />
+          </div>
+          <div class="field">
+            <label for="prefix">Prefix</label>
+            <input type="text" id="prefix" placeholder="P" />
+          </div>
+          <div class="field">
+            <label for="pad-digits">Pad digits</label>
+            <input type="number" id="pad-digits" min="0" value="0" placeholder="auto" />
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Output -->
+      <fieldset>
+        <legend>Output</legend>
+        <div class="field">
+          <label for="out-dir">Output directory</label>
+          <div class="file-picker">
+            <input type="text" id="out-dir" readonly placeholder="Select output folder..." />
+            <button type="button" id="pick-outdir">Browse</button>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button type="submit" id="btn-generate">Generate Posters</button>
+        <button type="button" id="btn-dryrun">Dry Run</button>
+      </div>
+    </form>
+
+    <!-- Progress -->
+    <div id="progress-section" class="hidden">
+      <h2>Progress</h2>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <p id="progress-text"></p>
+      <pre id="log"></pre>
+      <div id="output-links" class="hidden">
+        <h3>Output Files</h3>
+        <div id="output-files"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
