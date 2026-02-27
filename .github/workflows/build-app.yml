@@ -6,19 +6,12 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            bun-target: bun-darwin-arm64
-          - platform: macos-13
-            target: x86_64-apple-darwin
-            bun-target: bun-darwin-x64
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +26,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -45,13 +40,19 @@ jobs:
       - name: Install app dependencies
         run: cd app && npm ci
 
-      - name: Build sidecar
+      - name: Build sidecars
         run: |
           mkdir -p app/src-tauri/binaries
-          bun build --compile \
-            --target=${{ matrix.bun-target }} \
+          bun build --compile --target=bun-darwin-arm64 \
             tools/poster-qr/sidecar.ts \
-            --outfile app/src-tauri/binaries/poster-qr-sidecar-${{ matrix.target }}
+            --outfile app/src-tauri/binaries/poster-qr-sidecar-aarch64-apple-darwin
+          bun build --compile --target=bun-darwin-x64 \
+            tools/poster-qr/sidecar.ts \
+            --outfile app/src-tauri/binaries/poster-qr-sidecar-x86_64-apple-darwin
+          lipo -create \
+            app/src-tauri/binaries/poster-qr-sidecar-aarch64-apple-darwin \
+            app/src-tauri/binaries/poster-qr-sidecar-x86_64-apple-darwin \
+            -output app/src-tauri/binaries/poster-qr-sidecar-universal-apple-darwin
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -59,7 +60,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: app
+          args: --target universal-apple-darwin
           tagName: ${{ github.ref_name }}
           releaseName: 'Poster QR ${{ github.ref_name }}'
-          releaseBody: 'Download the .dmg for your Mac architecture.'
+          releaseBody: 'Download the .dmg for your Mac.'
           releaseDraft: true
