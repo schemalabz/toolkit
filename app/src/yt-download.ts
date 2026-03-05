@@ -1,6 +1,9 @@
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { appDataDir } from '@tauri-apps/api/path';
-import { toBase64, log, runSidecarStreaming } from './main';
+import { runSidecarStreaming, wireDirectoryPicker } from './main';
+import { ProgressPanel } from './progress-panel';
+
+// Tool container
+const toolEl = document.getElementById('tool-yt-download')!;
 
 // DOM elements
 const ytUrlInput = document.getElementById('yt-url') as HTMLInputElement;
@@ -10,10 +13,6 @@ const ytLocalOnlyCheckbox = document.getElementById('yt-local-only') as HTMLInpu
 const ytOutDirInput = document.getElementById('yt-out-dir') as HTMLInputElement;
 const ytPickOutdirBtn = document.getElementById('yt-pick-outdir') as HTMLButtonElement;
 const ytDownloadBtn = document.getElementById('yt-download-btn') as HTMLButtonElement;
-const ytProgressSection = document.getElementById('yt-progress-section')!;
-const ytProgressBar = document.getElementById('yt-progress-bar')!;
-const ytProgressText = document.getElementById('yt-progress-text')!;
-const ytLogEl = document.getElementById('yt-log')!;
 const ytResultSection = document.getElementById('yt-result-section')!;
 const ytCdnUrlEl = document.getElementById('yt-cdn-url') as HTMLInputElement;
 const ytCopyBtn = document.getElementById('yt-copy-btn') as HTMLButtonElement;
@@ -25,6 +24,8 @@ const ytServerEditBtn = document.getElementById('yt-server-edit') as HTMLButtonE
 const ytDepsStatus = document.getElementById('yt-deps-status')!;
 const ytDepsLabel = document.getElementById('yt-deps-label')!;
 const ytDepsDetail = document.getElementById('yt-deps-detail')!;
+
+const progress = new ProgressPanel(toolEl);
 
 // State
 let ytdlpPath: string | null = null;
@@ -76,11 +77,6 @@ function expandServerFields() {
   ytServerSummary.classList.add('hidden');
 }
 
-
-function ytLog(msg: string) {
-  log(ytLogEl, msg);
-}
-
 // --- Deps check ---
 
 export async function ensureDeps() {
@@ -111,7 +107,7 @@ export async function ensureDeps() {
         ytDepsLabel.textContent = `Error: ${event.message}`;
         ytDepsStatus.classList.add('deps-error');
       }
-    }, ytLog, ytProgressText);
+    }, (msg) => progress.log(msg), progress.textEl);
   } catch (err) {
     ytDepsLabel.textContent = `Failed to check dependencies: ${err}`;
     ytDepsStatus.classList.add('deps-error');
@@ -123,41 +119,39 @@ export async function ensureDeps() {
 function handleProgress(event: { type: string; [key: string]: unknown }) {
   switch (event.type) {
     case 'status':
-      ytLog(event.message as string);
-      ytProgressText.textContent = event.message as string;
+      progress.log(event.message as string);
+      progress.setText(event.message as string);
       break;
 
     case 'download-progress': {
       const pct = event.percent as number;
-      ytProgressBar.style.width = `${pct}%`;
-      ytProgressText.textContent = `Downloading... ${pct.toFixed(1)}% of ${event.total}`;
+      progress.setProgress(pct);
+      progress.setText(`Downloading... ${pct.toFixed(1)}% of ${event.total}`);
       break;
     }
 
     case 'upload-progress':
       if (event.status === 'uploading') {
-        ytProgressText.textContent = 'Uploading to server...';
-        ytLog('Uploading to server...');
+        progress.setText('Uploading to server...');
+        progress.log('Uploading to server...');
       } else {
-        ytProgressText.textContent = 'Upload complete';
-        ytLog('Upload complete');
+        progress.setText('Upload complete');
+        progress.log('Upload complete');
       }
       break;
 
     case 'complete': {
       const cdnUrl = event.cdnUrl as string;
-      ytProgressBar.style.width = '100%';
-      ytProgressBar.classList.add('done');
-      ytProgressText.textContent = 'Done!';
-      ytLog(`CDN URL: ${cdnUrl}`);
+      progress.complete('Done!');
+      progress.log(`CDN URL: ${cdnUrl}`);
       ytResultSection.classList.remove('hidden');
       ytCdnUrlEl.value = cdnUrl;
       break;
     }
 
     case 'error':
-      ytLog(`ERROR: ${event.message}`);
-      ytProgressText.textContent = `Error: ${event.message}`;
+      progress.log(`ERROR: ${event.message}`);
+      progress.setError(event.message as string);
       break;
   }
 }
@@ -185,12 +179,7 @@ async function runDownload() {
 
   saveSettings();
 
-  // Reset UI
-  ytProgressSection.classList.remove('hidden');
-  ytProgressBar.style.width = '0%';
-  ytProgressBar.classList.remove('done');
-  ytProgressText.textContent = 'Starting...';
-  ytLogEl.textContent = '';
+  progress.reset();
   ytResultSection.classList.add('hidden');
   ytDownloadBtn.disabled = true;
 
@@ -203,7 +192,7 @@ async function runDownload() {
       serverUrl: ytServerUrlInput.value.trim(),
       apiKey: ytApiKeyInput.value.trim(),
       ytdlpPath,
-    }, handleProgress, ytLog, ytProgressText);
+    }, handleProgress, (msg) => progress.log(msg), progress.textEl);
   } finally {
     ytDownloadBtn.disabled = false;
   }
@@ -211,10 +200,7 @@ async function runDownload() {
 
 // --- Event listeners ---
 
-ytPickOutdirBtn.addEventListener('click', async () => {
-  const path = await openDialog({ directory: true });
-  if (path) ytOutDirInput.value = path as string;
-});
+wireDirectoryPicker(ytPickOutdirBtn, ytOutDirInput);
 
 ytDownloadBtn.addEventListener('click', runDownload);
 ytLocalOnlyCheckbox.addEventListener('change', () => {

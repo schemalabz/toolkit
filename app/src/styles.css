@@ -162,9 +162,7 @@ input[readonly] {
   margin-top: 16px;
 }
 
-#btn-generate,
-#btn-dryrun,
-#yt-download-btn {
+.btn-primary {
   padding: 8px 20px;
   font-size: 14px;
   font-weight: 500;
@@ -172,36 +170,15 @@ input[readonly] {
   border-radius: var(--radius);
   cursor: pointer;
   font-family: inherit;
-}
-
-#btn-generate,
-#yt-download-btn {
   background: var(--primary);
   color: white;
 }
 
-#btn-generate:hover,
-#yt-download-btn:hover {
+.btn-primary:hover {
   background: var(--primary-hover);
 }
 
-#btn-generate:disabled,
-#yt-download-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-#btn-dryrun {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text);
-}
-
-#btn-dryrun:hover {
-  background: #f0f0f0;
-}
-
-#btn-dryrun:disabled {
+.btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -291,8 +268,7 @@ input[readonly] {
 }
 
 /* Progress */
-#pq-progress-section,
-#yt-progress-section {
+.progress-section {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--border);
@@ -319,15 +295,13 @@ input[readonly] {
   background: var(--success);
 }
 
-#pq-progress-text,
-#yt-progress-text {
+.progress-text {
   font-size: 13px;
   color: var(--text-muted);
   margin-bottom: 10px;
 }
 
-#pq-log,
-#yt-log {
+.tool-log {
   font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
   font-size: 11px;
   line-height: 1.6;
@@ -495,10 +469,21 @@ input[readonly] {
   border-radius: var(--radius);
   cursor: pointer;
   font-family: inherit;
+  color: var(--text);
 }
 
 .btn-secondary:hover {
   background: #f0f0f0;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actions .btn-secondary {
+  padding: 8px 20px;
+  font-size: 14px;
 }
 
 .step-hint {

@@ -1,14 +1,17 @@
 import { Command } from '@tauri-apps/plugin-shell';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 
 // --- Shared helpers ---
 
-export function toBase64(obj: unknown): string {
+function toBase64(obj: unknown): string {
   return btoa(JSON.stringify(obj));
 }
 
-export function log(logEl: HTMLElement, msg: string) {
-  logEl.textContent += msg + '\n';
-  logEl.scrollTop = logEl.scrollHeight;
+export function wireDirectoryPicker(btn: HTMLButtonElement, input: HTMLInputElement): void {
+  btn.addEventListener('click', async () => {
+    const path = await openDialog({ directory: true });
+    if (path) input.value = path as string;
+  });
 }
 
 export async function runSidecar(sidecarName: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
