@@ -1,7 +1,36 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import type { BackupConfig, ProgressEvent } from './types.js';
+import type { BackupConfig, ProgressEvent, SidecarOptions } from './types.js';
+
+/**
+ * Check if ffmpeg is available on the system PATH.
+ */
+function hasSystemFfmpeg(): boolean {
+  try {
+    const { execSync } = require('child_process');
+    execSync('ffmpeg -version', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Find an existing downloaded file for a video ID (any extension).
+ */
+function findExistingFile(outputDir: string, videoId: string): string | null {
+  try {
+    const files = fs.readdirSync(outputDir);
+    const match = files.find(f => {
+      const name = path.parse(f).name;
+      return name === videoId && fs.statSync(path.join(outputDir, f)).size > 0;
+    });
+    return match ? path.join(outputDir, match) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Extract YouTube video ID from various URL formats.
@@ -30,39 +59,64 @@ export async function downloadVideo(
   videoId: string,
   outputDir: string,
   onProgress: (event: ProgressEvent) => void,
+  options?: SidecarOptions,
 ): Promise<string> {
   fs.mkdirSync(outputDir, { recursive: true });
-  const outputPath = path.join(outputDir, `${videoId}.mp4`);
 
-  // Skip if already downloaded
-  if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
-    const sizeMb = (fs.statSync(outputPath).size / 1024 / 1024).toFixed(1);
+  // Check if already downloaded (any extension)
+  const existing = findExistingFile(outputDir, videoId);
+  if (existing) {
+    const sizeMb = (fs.statSync(existing).size / 1024 / 1024).toFixed(1);
     onProgress({ type: 'status', message: `Video already exists (${sizeMb} MB), skipping download` });
-    return outputPath;
+    return existing;
   }
 
   onProgress({ type: 'status', message: 'Downloading video...' });
 
+  const ytdlp = options?.ytdlpPath || 'yt-dlp';
+
+  // If ffmpeg is available, use the better format string that merges streams.
+  // Otherwise, use a combined-stream format that doesn't need ffmpeg.
+  const hasFfmpeg = options?.ffmpegPath || hasSystemFfmpeg();
+  const formatArgs: string[] = hasFfmpeg
+    ? ['-f', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best', '--merge-output-format', 'mp4']
+    : ['-f', 'best[height<=720][ext=mp4]/best[ext=mp4]/best'];
+
+  const ffmpegArgs: string[] = options?.ffmpegPath ? ['--ffmpeg-location', options.ffmpegPath] : [];
+
+  // Use yt-dlp's template syntax so it picks the correct extension
+  const outputTemplate = path.join(outputDir, `${videoId}.%(ext)s`);
+
   return new Promise((resolve, reject) => {
-    const proc = spawn('yt-dlp', [
-      '-f', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
-      '--merge-output-format', 'mp4',
-      '-o', outputPath,
+    const proc = spawn(ytdlp, [
+      ...formatArgs,
+      ...ffmpegArgs,
+      '-o', outputTemplate,
       '--newline',
       url,
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let stderr = '';
+    let destinationPath = '';
 
     proc.stdout.on('data', (data: Buffer) => {
       const line = data.toString();
+
+      // Capture actual output path from yt-dlp
+      // Matches: [download] Destination: /path/to/file.mp4
+      //      or: [Merger] Merging formats into "/path/to/file.mp4"
+      const destMatch = line.match(/\[download\] Destination:\s+(.+)/);
+      if (destMatch) destinationPath = destMatch[1].trim();
+      const mergeMatch = line.match(/\[Merger\] Merging formats into "(.+)"/);
+      if (mergeMatch) destinationPath = mergeMatch[1].trim();
+
       // Parse yt-dlp progress: [download]  45.2% of 512.00MiB at 10.00MiB/s
       const match = line.match(/\[download\]\s+([\d.]+)%\s+of\s+~?([\d.]+\S+)\s/);
       if (match) {
         onProgress({
           type: 'download-progress',
           percent: parseFloat(match[1]),
-          downloaded: '', // yt-dlp doesn't provide this directly in this format
+          downloaded: '',
           total: match[2],
         });
       }
@@ -74,14 +128,17 @@ export async function downloadVideo(
 
     proc.on('close', (code) => {
       if (code !== 0) {
-        // Clean up partial download
-        try { fs.unlinkSync(outputPath); } catch {}
         reject(new Error(`yt-dlp exited with code ${code}: ${stderr.slice(-500)}`));
         return;
       }
 
-      if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
-        reject(new Error('yt-dlp finished but no output file was created'));
+      // Use the path yt-dlp told us, fall back to scanning the directory
+      const outputPath = (destinationPath && fs.existsSync(destinationPath))
+        ? destinationPath
+        : findExistingFile(outputDir, videoId);
+
+      if (!outputPath) {
+        reject(new Error('yt-dlp finished but no output file found'));
         return;
       }
 
@@ -143,11 +200,12 @@ export async function uploadToServer(
 export async function runBackup(
   config: BackupConfig,
   onProgress: (event: ProgressEvent) => void,
+  options?: SidecarOptions,
 ): Promise<void> {
   const videoId = extractVideoId(config.youtubeUrl);
   onProgress({ type: 'status', message: `Video ID: ${videoId}` });
 
-  const filePath = await downloadVideo(config.youtubeUrl, videoId, config.outputDir, onProgress);
+  const filePath = await downloadVideo(config.youtubeUrl, videoId, config.outputDir, onProgress, options);
 
   if (config.localOnly) {
     onProgress({ type: 'status', message: `Local-only mode — file saved to ${filePath}` });

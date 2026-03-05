@@ -3,157 +3,259 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Poster QR Generator</title>
+  <title>Schema Labs Toolkit</title>
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
   <div id="app">
-    <h1>Poster QR Generator</h1>
 
-    <!-- Wizard navigation -->
-    <div id="wizard-nav">
-      <div class="wizard-steps">
-        <div class="wizard-step active" data-step="1"><span class="step-num">1</span> Template</div>
-        <div class="wizard-step" data-step="2"><span class="step-num">2</span> QR Placement</div>
-        <div class="wizard-step" data-step="3"><span class="step-num">3</span> Settings</div>
-        <div class="wizard-step" data-step="4"><span class="step-num">4</span> Generate</div>
+    <!-- Tool Selector (Home) -->
+    <div id="tool-home">
+      <h1>Schema Labs Toolkit</h1>
+      <div class="tool-grid">
+        <button class="tool-card" id="card-poster-qr">
+          <div class="tool-card-icon">QR</div>
+          <div class="tool-card-body">
+            <h2>Poster QR</h2>
+            <p>Generate print-ready poster PDFs with unique QR codes</p>
+          </div>
+        </button>
+        <button class="tool-card" id="card-yt-download">
+          <div class="tool-card-icon">YT</div>
+          <div class="tool-card-body">
+            <h2>YT Download</h2>
+            <p>Download YouTube videos and upload to CDN</p>
+          </div>
+        </button>
       </div>
     </div>
 
-    <!-- Step 1: Template -->
-    <div class="wizard-panel active" data-step="1">
-      <p class="step-hint">Prepare a poster template image (PNG/JPG) with a solid-color rectangle where the QR code should go. Default marker color: magenta (#FF00FF).</p>
+    <!-- Poster QR Tool -->
+    <div id="tool-poster-qr" class="hidden">
+      <div class="tool-header">
+        <button class="btn-home">&larr; Back</button>
+        <h1>Poster QR Generator</h1>
+      </div>
+
+      <!-- Wizard navigation -->
+      <div id="wizard-nav">
+        <div class="wizard-steps">
+          <div class="wizard-step active" data-step="1"><span class="step-num">1</span> Template</div>
+          <div class="wizard-step" data-step="2"><span class="step-num">2</span> QR Placement</div>
+          <div class="wizard-step" data-step="3"><span class="step-num">3</span> Settings</div>
+          <div class="wizard-step" data-step="4"><span class="step-num">4</span> Generate</div>
+        </div>
+      </div>
+
+      <!-- Step 1: Template -->
+      <div class="wizard-panel active" data-step="1">
+        <p class="step-hint">Prepare a poster template image (PNG/JPG) with a solid-color rectangle where the QR code should go. Default marker color: magenta (#FF00FF).</p>
+        <div class="field">
+          <label for="template-path">Poster template image</label>
+          <div class="file-picker">
+            <input type="text" id="template-path" readonly placeholder="Select a PNG file..." />
+            <button type="button" id="pick-template">Browse</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="marker-color">Marker color (hex)</label>
+          <input type="text" id="marker-color" value="FF00FF" placeholder="FF00FF" />
+        </div>
+        <div class="wizard-actions">
+          <span></span>
+          <button type="button" id="btn-next-1" class="btn-next" disabled>Next</button>
+        </div>
+      </div>
+
+      <!-- Step 2: QR Placement -->
+      <div class="wizard-panel" data-step="2">
+        <div id="preview-container">
+          <img id="preview-img" alt="Template preview" />
+          <div id="preview-loading" class="hidden">Generating preview...</div>
+        </div>
+        <p id="detect-status"></p>
+        <div class="field-row">
+          <div class="field">
+            <label for="qr-x">X (px)</label>
+            <input type="number" id="qr-x" min="0" />
+          </div>
+          <div class="field">
+            <label for="qr-y">Y (px)</label>
+            <input type="number" id="qr-y" min="0" />
+          </div>
+          <div class="field">
+            <label for="qr-size">Size (px)</label>
+            <input type="number" id="qr-size" min="10" />
+          </div>
+        </div>
+        <div class="field" style="margin-top: 4px;">
+          <button type="button" id="btn-redetect" class="btn-secondary">Detect</button>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" id="btn-back-2" class="btn-back">Back</button>
+          <button type="button" id="btn-next-2" class="btn-next">Next</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Settings -->
+      <div class="wizard-panel" data-step="3">
+        <fieldset>
+          <legend>URL Settings</legend>
+          <div class="field">
+            <label for="base-url">Base URL</label>
+            <input type="url" id="base-url" placeholder="https://example.com/page" />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="campaign">Campaign (utm_campaign)</label>
+              <input type="text" id="campaign" placeholder="summer25" />
+            </div>
+            <div class="field">
+              <label for="source">Source (utm_source)</label>
+              <input type="text" id="source" value="qr" placeholder="qr" />
+            </div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Batch Counts</legend>
+          <div class="field-row">
+            <div class="field">
+              <label for="a3-count">A3 posters</label>
+              <input type="number" id="a3-count" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label for="a4-count">A4 posters</label>
+              <input type="number" id="a4-count" min="0" value="0" />
+            </div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>ID Settings</legend>
+          <div class="field-row">
+            <div class="field">
+              <label for="start-number">Start number</label>
+              <input type="number" id="start-number" min="1" value="1" />
+            </div>
+            <div class="field">
+              <label for="prefix">Prefix</label>
+              <input type="text" id="prefix" placeholder="P" />
+            </div>
+            <div class="field">
+              <label for="pad-digits">Pad digits</label>
+              <input type="number" id="pad-digits" min="0" value="0" placeholder="auto" />
+            </div>
+          </div>
+        </fieldset>
+        <div class="wizard-actions">
+          <button type="button" id="btn-back-3" class="btn-back">Back</button>
+          <button type="button" id="btn-next-3" class="btn-next">Next</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Generate -->
+      <div class="wizard-panel" data-step="4">
+        <div class="field">
+          <label for="pq-out-dir">Output directory</label>
+          <div class="file-picker">
+            <input type="text" id="pq-out-dir" readonly placeholder="Select output folder..." />
+            <button type="button" id="pq-pick-outdir">Browse</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" id="btn-generate">Generate Posters</button>
+          <button type="button" id="btn-dryrun">Dry Run</button>
+        </div>
+        <div id="pq-progress-section" class="hidden">
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="pq-progress-bar"></div>
+          </div>
+          <p id="pq-progress-text"></p>
+          <pre id="pq-log"></pre>
+          <div id="pq-output-links" class="hidden">
+            <h3>Output Files</h3>
+            <div id="pq-output-files"></div>
+          </div>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" id="btn-back-4" class="btn-back">Back</button>
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- YT Download Tool -->
+    <div id="tool-yt-download" class="hidden">
+      <div class="tool-header">
+        <button class="btn-home">&larr; Back</button>
+        <h1>YT Download</h1>
+      </div>
+
+      <div id="yt-deps-status" class="deps-status hidden">
+        <span id="yt-deps-label"></span>
+        <span id="yt-deps-detail" class="status-detail"></span>
+      </div>
+
       <div class="field">
-        <label for="template-path">Poster template image</label>
+        <label for="yt-url">YouTube URL</label>
+        <input type="url" id="yt-url" placeholder="https://youtube.com/watch?v=..." />
+      </div>
+
+      <div class="field">
+        <label for="yt-out-dir">Output directory</label>
         <div class="file-picker">
-          <input type="text" id="template-path" readonly placeholder="Select a PNG file..." />
-          <button type="button" id="pick-template">Browse</button>
+          <input type="text" id="yt-out-dir" readonly placeholder="Select output folder..." />
+          <button type="button" id="yt-pick-outdir">Browse</button>
         </div>
       </div>
+
       <div class="field">
-        <label for="marker-color">Marker color (hex)</label>
-        <input type="text" id="marker-color" value="FF00FF" placeholder="FF00FF" />
+        <label class="checkbox-label">
+          <input type="checkbox" id="yt-local-only" />
+          Local only (skip server upload)
+        </label>
       </div>
-      <div class="wizard-actions">
-        <span></span>
-        <button type="button" id="btn-next-1" class="btn-next" disabled>Next</button>
-      </div>
-    </div>
 
-    <!-- Step 2: QR Placement -->
-    <div class="wizard-panel" data-step="2">
-      <div id="preview-container">
-        <img id="preview-img" alt="Template preview" />
-        <div id="preview-loading" class="hidden">Generating preview...</div>
-      </div>
-      <p id="detect-status"></p>
-      <div class="field-row">
-        <div class="field">
-          <label for="qr-x">X (px)</label>
-          <input type="number" id="qr-x" min="0" />
+      <div id="yt-server-fields">
+        <div id="yt-server-summary" class="server-summary hidden">
+          <span>Server configured</span>
+          <span id="yt-server-detail" class="status-detail"></span>
+          <button type="button" id="yt-server-edit" class="btn-link">Edit</button>
         </div>
-        <div class="field">
-          <label for="qr-y">Y (px)</label>
-          <input type="number" id="qr-y" min="0" />
-        </div>
-        <div class="field">
-          <label for="qr-size">Size (px)</label>
-          <input type="number" id="qr-size" min="10" />
-        </div>
+        <fieldset id="yt-server-fieldset">
+          <legend>Server Settings</legend>
+          <div class="field">
+            <label for="yt-server-url">Server URL</label>
+            <input type="url" id="yt-server-url" placeholder="https://api.example.com" />
+          </div>
+          <div class="field">
+            <label for="yt-api-key">API Key</label>
+            <input type="text" id="yt-api-key" placeholder="Bearer token" />
+          </div>
+        </fieldset>
       </div>
-      <div class="field" style="margin-top: 4px;">
-        <button type="button" id="btn-redetect" class="btn-secondary">Detect</button>
-      </div>
-      <div class="wizard-actions">
-        <button type="button" id="btn-back-2" class="btn-back">Back</button>
-        <button type="button" id="btn-next-2" class="btn-next">Next</button>
-      </div>
-    </div>
 
-    <!-- Step 3: Settings -->
-    <div class="wizard-panel" data-step="3">
-      <fieldset>
-        <legend>URL Settings</legend>
-        <div class="field">
-          <label for="base-url">Base URL</label>
-          <input type="url" id="base-url" placeholder="https://example.com/page" />
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label for="campaign">Campaign (utm_campaign)</label>
-            <input type="text" id="campaign" placeholder="summer25" />
-          </div>
-          <div class="field">
-            <label for="source">Source (utm_source)</label>
-            <input type="text" id="source" value="qr" placeholder="qr" />
-          </div>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>Batch Counts</legend>
-        <div class="field-row">
-          <div class="field">
-            <label for="a3-count">A3 posters</label>
-            <input type="number" id="a3-count" min="0" value="0" />
-          </div>
-          <div class="field">
-            <label for="a4-count">A4 posters</label>
-            <input type="number" id="a4-count" min="0" value="0" />
-          </div>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>ID Settings</legend>
-        <div class="field-row">
-          <div class="field">
-            <label for="start-number">Start number</label>
-            <input type="number" id="start-number" min="1" value="1" />
-          </div>
-          <div class="field">
-            <label for="prefix">Prefix</label>
-            <input type="text" id="prefix" placeholder="P" />
-          </div>
-          <div class="field">
-            <label for="pad-digits">Pad digits</label>
-            <input type="number" id="pad-digits" min="0" value="0" placeholder="auto" />
-          </div>
-        </div>
-      </fieldset>
-      <div class="wizard-actions">
-        <button type="button" id="btn-back-3" class="btn-back">Back</button>
-        <button type="button" id="btn-next-3" class="btn-next">Next</button>
-      </div>
-    </div>
-
-    <!-- Step 4: Generate -->
-    <div class="wizard-panel" data-step="4">
-      <div class="field">
-        <label for="out-dir">Output directory</label>
-        <div class="file-picker">
-          <input type="text" id="out-dir" readonly placeholder="Select output folder..." />
-          <button type="button" id="pick-outdir">Browse</button>
-        </div>
-      </div>
       <div class="actions">
-        <button type="button" id="btn-generate">Generate Posters</button>
-        <button type="button" id="btn-dryrun">Dry Run</button>
+        <button type="button" id="yt-download-btn" disabled>Download</button>
       </div>
-      <div id="progress-section" class="hidden">
+
+      <div id="yt-progress-section" class="hidden">
         <div class="progress-bar-container">
-          <div class="progress-bar" id="progress-bar"></div>
+          <div class="progress-bar" id="yt-progress-bar"></div>
         </div>
-        <p id="progress-text"></p>
-        <pre id="log"></pre>
-        <div id="output-links" class="hidden">
-          <h3>Output Files</h3>
-          <div id="output-files"></div>
-        </div>
+        <p id="yt-progress-text"></p>
+        <pre id="yt-log"></pre>
       </div>
-      <div class="wizard-actions">
-        <button type="button" id="btn-back-4" class="btn-back">Back</button>
-        <span></span>
+
+      <div id="yt-result-section" class="hidden">
+        <h3>CDN URL</h3>
+        <div class="result-row">
+          <input type="text" id="yt-cdn-url" readonly />
+          <button type="button" id="yt-copy-btn" class="btn-copy">Copy</button>
+        </div>
+        <p class="result-hint">Use this URL as the media URL of the meeting in OpenCouncil.</p>
       </div>
     </div>
+
   </div>
 
   <script type="module" src="/src/main.ts"></script>

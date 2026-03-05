@@ -12,3 +12,8 @@ export interface BackupConfig {
   serverUrl: string;
   apiKey: string;
 }
+
+export interface SidecarOptions {
+  ytdlpPath?: string;
+  ffmpegPath?: string;
+}

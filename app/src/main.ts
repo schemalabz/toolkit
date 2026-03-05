@@ -1,193 +1,18 @@
 import { Command } from '@tauri-apps/plugin-shell';
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import { openPath } from '@tauri-apps/plugin-opener';
 
-// DOM elements
-const templatePathInput = document.getElementById('template-path') as HTMLInputElement;
-const pickTemplateBtn = document.getElementById('pick-template') as HTMLButtonElement;
-const markerColorInput = document.getElementById('marker-color') as HTMLInputElement;
-const qrXInput = document.getElementById('qr-x') as HTMLInputElement;
-const qrYInput = document.getElementById('qr-y') as HTMLInputElement;
-const qrSizeInput = document.getElementById('qr-size') as HTMLInputElement;
-const baseUrlInput = document.getElementById('base-url') as HTMLInputElement;
-const campaignInput = document.getElementById('campaign') as HTMLInputElement;
-const sourceInput = document.getElementById('source') as HTMLInputElement;
-const a3CountInput = document.getElementById('a3-count') as HTMLInputElement;
-const a4CountInput = document.getElementById('a4-count') as HTMLInputElement;
-const startNumberInput = document.getElementById('start-number') as HTMLInputElement;
-const prefixInput = document.getElementById('prefix') as HTMLInputElement;
-const padDigitsInput = document.getElementById('pad-digits') as HTMLInputElement;
-const outDirInput = document.getElementById('out-dir') as HTMLInputElement;
-const pickOutdirBtn = document.getElementById('pick-outdir') as HTMLButtonElement;
-const generateBtn = document.getElementById('btn-generate') as HTMLButtonElement;
-const dryRunBtn = document.getElementById('btn-dryrun') as HTMLButtonElement;
-const progressSection = document.getElementById('progress-section')!;
-const progressBar = document.getElementById('progress-bar')!;
-const progressText = document.getElementById('progress-text')!;
-const logEl = document.getElementById('log')!;
-const outputLinks = document.getElementById('output-links')!;
-const outputFiles = document.getElementById('output-files')!;
-const previewImg = document.getElementById('preview-img') as HTMLImageElement;
-const previewLoading = document.getElementById('preview-loading')!;
-const detectStatus = document.getElementById('detect-status')!;
-const redetectBtn = document.getElementById('btn-redetect') as HTMLButtonElement;
+// --- Shared helpers ---
 
-// Wizard state
-let currentStep = 1;
-const totalSteps = 4;
-
-const wizardStepEls = document.querySelectorAll<HTMLElement>('.wizard-step');
-const wizardPanelEls = document.querySelectorAll<HTMLElement>('.wizard-panel');
-
-// --- Wizard Navigation ---
-
-function goToStep(step: number) {
-  if (step < 1 || step > totalSteps) return;
-  currentStep = step;
-
-  // Update nav indicators
-  wizardStepEls.forEach(el => {
-    const s = parseInt(el.dataset.step!, 10);
-    el.classList.toggle('active', s === step);
-    el.classList.toggle('completed', s < step);
-  });
-
-  // Show/hide panels
-  wizardPanelEls.forEach(el => {
-    el.classList.toggle('active', parseInt(el.dataset.step!, 10) === step);
-  });
-
-  // Step entry logic
-  if (step === 2) {
-    onEnterStep2();
-  }
-}
-
-// --- Step 1: Template ---
-
-pickTemplateBtn.addEventListener('click', async () => {
-  const path = await openDialog({
-    multiple: false,
-    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }],
-  });
-  if (path) {
-    templatePathInput.value = path as string;
-    updateNextButton1();
-  }
-});
-
-function updateNextButton1() {
-  const btn = document.getElementById('btn-next-1') as HTMLButtonElement;
-  btn.disabled = !templatePathInput.value;
-}
-
-document.getElementById('btn-next-1')!.addEventListener('click', () => goToStep(2));
-
-// --- Step 2: QR Placement ---
-
-async function onEnterStep2() {
-  // Auto-detect on entry
-  await runPreview(true);
-}
-
-let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-function debouncedPreviewUpdate() {
-  if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
-  previewDebounceTimer = setTimeout(() => {
-    runPreview(false);
-  }, 300);
-}
-
-qrXInput.addEventListener('input', debouncedPreviewUpdate);
-qrYInput.addEventListener('input', debouncedPreviewUpdate);
-qrSizeInput.addEventListener('input', debouncedPreviewUpdate);
-
-redetectBtn.addEventListener('click', () => runPreview(true));
-
-async function runPreview(detect: boolean) {
-  const hasImage = previewImg.style.display !== 'none' && previewImg.src;
-  if (!hasImage) {
-    previewLoading.classList.remove('hidden');
-  }
-  detectStatus.textContent = detect ? 'Detecting marker...' : 'Updating preview...';
-
-  const input: Record<string, unknown> = {
-    action: 'preview',
-    templatePath: templatePathInput.value,
-    markerColor: markerColorInput.value || 'FF00FF',
-  };
-
-  if (detect) {
-    input.detect = true;
-  } else {
-    const x = parseInt(qrXInput.value || '0', 10);
-    const y = parseInt(qrYInput.value || '0', 10);
-    const size = parseInt(qrSizeInput.value || '0', 10);
-    if (size > 0) {
-      input.qrX = x;
-      input.qrY = y;
-      input.qrSize = size;
-    }
-  }
-
-  const result = await runSidecar(input);
-  previewLoading.classList.add('hidden');
-
-  if (result.error) {
-    detectStatus.textContent = `Error: ${result.error}`;
-    previewImg.style.display = 'none';
-    return;
-  }
-
-  if (result.imageBase64) {
-    previewImg.src = `data:image/png;base64,${result.imageBase64}`;
-    previewImg.style.display = 'block';
-  }
-
-  if (detect && result.detected) {
-    qrXInput.value = String(result.qrX);
-    qrYInput.value = String(result.qrY);
-    qrSizeInput.value = String(result.qrSize);
-    detectStatus.textContent = `Detected at (${result.qrX}, ${result.qrY}) — ${result.qrSize}px`;
-  } else if (!detect) {
-    detectStatus.textContent = `Preview at (${qrXInput.value}, ${qrYInput.value}) — ${qrSizeInput.value}px`;
-  }
-}
-
-document.getElementById('btn-back-2')!.addEventListener('click', () => goToStep(1));
-document.getElementById('btn-next-2')!.addEventListener('click', () => goToStep(3));
-
-// --- Step 3: Settings ---
-
-document.getElementById('btn-back-3')!.addEventListener('click', () => goToStep(2));
-document.getElementById('btn-next-3')!.addEventListener('click', () => goToStep(4));
-
-// --- Step 4: Generate ---
-
-pickOutdirBtn.addEventListener('click', async () => {
-  const path = await openDialog({ directory: true });
-  if (path) outDirInput.value = path as string;
-});
-
-document.getElementById('btn-back-4')!.addEventListener('click', () => goToStep(3));
-
-generateBtn.addEventListener('click', () => run(false));
-dryRunBtn.addEventListener('click', () => run(true));
-
-// --- Encode / Sidecar helpers ---
-
-function toBase64(obj: unknown): string {
+export function toBase64(obj: unknown): string {
   return btoa(JSON.stringify(obj));
 }
 
-function log(msg: string) {
+export function log(logEl: HTMLElement, msg: string) {
   logEl.textContent += msg + '\n';
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-async function runSidecar(input: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const cmd = Command.sidecar('binaries/poster-qr-sidecar', [toBase64(input)]);
+export async function runSidecar(sidecarName: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const cmd = Command.sidecar(sidecarName, [toBase64(input)]);
 
   return new Promise((resolve) => {
     let output = '';
@@ -195,15 +20,15 @@ async function runSidecar(input: Record<string, unknown>): Promise<Record<string
       output += line + '\n';
     });
     cmd.stderr.on('data', (line: string) => {
-      log(`stderr: ${line}`);
+      console.warn(`stderr: ${line}`);
     });
     cmd.on('error', (err: string) => {
-      log(`Sidecar error: ${err}`);
+      console.error(`Sidecar error: ${err}`);
       resolve({ error: err });
     });
-    cmd.on('close', (data: { code: number; signal: number | null }) => {
+    cmd.on('close', (data) => {
       if (data.code !== 0) {
-        log(`Sidecar exited with code ${data.code}`);
+        console.warn(`Sidecar exited with code ${data.code}`);
       }
       try {
         const lines = output.trim().split('\n').filter(l => l.trim());
@@ -214,199 +39,85 @@ async function runSidecar(input: Record<string, unknown>): Promise<Record<string
       }
     });
     cmd.spawn().catch((err: Error) => {
-      log(`Failed to spawn sidecar: ${err.message}`);
+      console.error(`Failed to spawn sidecar: ${err.message}`);
       resolve({ error: err.message });
     });
   });
 }
 
-async function runSidecarStreaming(input: Record<string, unknown>) {
-  const cmd = Command.sidecar('binaries/poster-qr-sidecar', [toBase64(input)]);
+export async function runSidecarStreaming(
+  sidecarName: string,
+  input: Record<string, unknown>,
+  onEvent: (event: { type: string; [key: string]: unknown }) => void,
+  logFn: (msg: string) => void,
+  progressTextEl: HTMLElement,
+) {
+  const cmd = Command.sidecar(sidecarName, [toBase64(input)]);
 
   return new Promise<void>((resolve) => {
     cmd.stdout.on('data', (line: string) => {
       if (!line.trim()) return;
       try {
         const event = JSON.parse(line.trim());
-        handleProgress(event);
+        onEvent(event);
       } catch {
-        log(line);
+        logFn(line);
       }
     });
 
     cmd.stderr.on('data', (line: string) => {
-      log(`stderr: ${line}`);
+      logFn(`stderr: ${line}`);
     });
 
     cmd.on('error', (err: string) => {
-      log(`Sidecar error: ${err}`);
-      progressText.textContent = `Error: ${err}`;
+      logFn(`Sidecar error: ${err}`);
+      progressTextEl.textContent = `Error: ${err}`;
       resolve();
     });
 
-    cmd.on('close', (data: { code: number; signal: number | null }) => {
+    cmd.on('close', (data) => {
       if (data.code !== 0) {
-        log(`Sidecar exited with code ${data.code}`);
+        logFn(`Sidecar exited with code ${data.code}`);
       }
       resolve();
     });
 
     cmd.spawn().catch((err: Error) => {
-      log(`Failed to spawn sidecar: ${err.message}`);
-      progressText.textContent = `Failed to start: ${err.message}`;
+      logFn(`Failed to spawn sidecar: ${err.message}`);
+      progressTextEl.textContent = `Failed to start: ${err.message}`;
       resolve();
     });
   });
 }
 
-function handleProgress(event: { type: string; [key: string]: unknown }) {
-  switch (event.type) {
-    case 'info':
-      log(event.message as string);
-      break;
+// --- Tool selector / routing ---
 
-    case 'batch-start':
-      log(`\n--- ${event.paper} (${event.count} posters) ---`);
-      break;
+const homeView = document.getElementById('tool-home')!;
+const posterQrView = document.getElementById('tool-poster-qr')!;
+const ytDownloadView = document.getElementById('tool-yt-download')!;
+const views = [homeView, posterQrView, ytDownloadView];
 
-    case 'poster': {
-      const pct = Math.round(((event.index as number) / (event.total as number)) * 100);
-      progressBar.style.width = `${pct}%`;
-      progressText.textContent = `${event.index}/${event.total} — poster-${event.id}`;
-      log(`poster-${event.id}`);
-      break;
-    }
-
-    case 'pdf-saved': {
-      log(`Saved: ${event.path} (${event.sizeMb} MB)`);
-      outputLinks.classList.remove('hidden');
-      const div = document.createElement('div');
-      div.className = 'output-file';
-      const span = document.createElement('span');
-      span.textContent = `${event.paper} — ${event.sizeMb} MB`;
-      const btn = document.createElement('button');
-      btn.textContent = 'Open';
-      btn.addEventListener('click', () => openPath(event.path as string));
-      div.appendChild(span);
-      div.appendChild(btn);
-      outputFiles.appendChild(div);
-      break;
-    }
-
-    case 'done':
-      progressBar.style.width = '100%';
-      progressBar.classList.add('done');
-      progressText.textContent = `Done! Generated ${event.totalCount} posters.`;
-      log(`\nDone! Generated ${event.totalCount} posters.`);
-      break;
-
-    case 'dry-run-item':
-      log(`${event.id} [${event.paper}] -> ${event.url}`);
-      break;
-
-    case 'dry-run-done':
-      progressBar.style.width = '100%';
-      progressBar.classList.add('done');
-      progressText.textContent = `Dry run complete. ${event.totalCount} posters would be generated.`;
-      break;
-
-    case 'error':
-      log(`ERROR: ${event.message}`);
-      progressText.textContent = `Error: ${event.message}`;
-      break;
-  }
+function showView(view: HTMLElement) {
+  views.forEach(v => v.classList.add('hidden'));
+  view.classList.remove('hidden');
 }
 
-// --- Main Generate ---
+// Home card clicks
+document.getElementById('card-poster-qr')!.addEventListener('click', () => {
+  showView(posterQrView);
+});
 
-function buildConfig(dryRun: boolean) {
-  const a3 = parseInt(a3CountInput.value || '0', 10);
-  const a4 = parseInt(a4CountInput.value || '0', 10);
+document.getElementById('card-yt-download')!.addEventListener('click', async () => {
+  showView(ytDownloadView);
+  // Lazy-load and trigger deps check
+  const { ensureDeps } = await import('./yt-download');
+  ensureDeps();
+});
 
-  const batches: { paper: string; count: number }[] = [];
-  if (a3 > 0) batches.push({ paper: 'A3', count: a3 });
-  if (a4 > 0) batches.push({ paper: 'A4', count: a4 });
+// Back to home buttons
+document.querySelectorAll<HTMLElement>('.btn-home').forEach(btn => {
+  btn.addEventListener('click', () => showView(homeView));
+});
 
-  const totalCount = batches.reduce((s, b) => s + b.count, 0);
-  const start = parseInt(startNumberInput.value || '1', 10);
-  const pad = parseInt(padDigitsInput.value || '0', 10) || String(start + totalCount - 1).length;
-
-  return {
-    templatePath: templatePathInput.value,
-    baseUrl: baseUrlInput.value,
-    campaign: campaignInput.value,
-    source: sourceInput.value || 'qr',
-    batches,
-    start,
-    prefix: prefixInput.value,
-    padDigits: pad,
-    outDir: outDirInput.value,
-    dryRun,
-    qrX: parseInt(qrXInput.value || '0', 10),
-    qrY: parseInt(qrYInput.value || '0', 10),
-    qrSize: parseInt(qrSizeInput.value || '0', 10),
-    idCorner: 'bottom-left',
-    idSize: 48,
-    idColor: '#999999',
-    idOffset: 150,
-  };
-}
-
-function validate(config: ReturnType<typeof buildConfig>): string | null {
-  if (!config.templatePath) return 'Please select a template image.';
-  if (!config.baseUrl) return 'Please enter a base URL.';
-  try { new URL(config.baseUrl); } catch { return 'Invalid URL format.'; }
-  const total = config.batches.reduce((s, b) => s + b.count, 0);
-  if (total < 1) return 'Please set at least one A3 or A4 count.';
-  if (!config.dryRun && !config.outDir) return 'Please select an output directory.';
-  if (!config.qrSize || config.qrSize < 1) return 'QR size must be set. Go back to Step 2 to detect or set coordinates.';
-  return null;
-}
-
-async function run(dryRun: boolean) {
-  const config = buildConfig(dryRun);
-  const error = validate(config);
-  if (error) {
-    alert(error);
-    return;
-  }
-
-  // Reset UI
-  progressSection.classList.remove('hidden');
-  progressBar.style.width = '0%';
-  progressBar.classList.remove('done');
-  progressText.textContent = 'Starting...';
-  logEl.textContent = '';
-  outputLinks.classList.add('hidden');
-  outputFiles.innerHTML = '';
-  generateBtn.disabled = true;
-  dryRunBtn.disabled = true;
-
-  try {
-    await runSidecarStreaming({
-      action: 'generate',
-      config: {
-        templatePath: config.templatePath,
-        baseUrl: config.baseUrl,
-        campaign: config.campaign,
-        source: config.source,
-        batches: config.batches,
-        start: config.start,
-        prefix: config.prefix,
-        padDigits: config.padDigits,
-        outDir: config.outDir,
-        dryRun: config.dryRun,
-        qrX: config.qrX,
-        qrY: config.qrY,
-        qrSize: config.qrSize,
-        idCorner: config.idCorner,
-        idSize: config.idSize,
-        idColor: config.idColor,
-        idOffset: config.idOffset,
-      },
-    });
-  } finally {
-    generateBtn.disabled = false;
-    dryRunBtn.disabled = false;
-  }
-}
+// Load poster-qr module eagerly (it sets up all its own listeners)
+import('./poster-qr');

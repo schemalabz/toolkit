@@ -43,6 +43,8 @@ jobs:
       - name: Build sidecars
         run: |
           mkdir -p app/src-tauri/binaries
+
+          # poster-qr sidecar
           bun build --compile --target=bun-darwin-arm64 \
             tools/poster-qr/sidecar.ts \
             --outfile app/src-tauri/binaries/poster-qr-sidecar-aarch64-apple-darwin
@@ -54,6 +56,18 @@ jobs:
             app/src-tauri/binaries/poster-qr-sidecar-x86_64-apple-darwin \
             -output app/src-tauri/binaries/poster-qr-sidecar-universal-apple-darwin
 
+          # yt-download sidecar
+          bun build --compile --target=bun-darwin-arm64 \
+            tools/yt-download/sidecar.ts \
+            --outfile app/src-tauri/binaries/yt-download-sidecar-aarch64-apple-darwin
+          bun build --compile --target=bun-darwin-x64 \
+            tools/yt-download/sidecar.ts \
+            --outfile app/src-tauri/binaries/yt-download-sidecar-x86_64-apple-darwin
+          lipo -create \
+            app/src-tauri/binaries/yt-download-sidecar-aarch64-apple-darwin \
+            app/src-tauri/binaries/yt-download-sidecar-x86_64-apple-darwin \
+            -output app/src-tauri/binaries/yt-download-sidecar-universal-apple-darwin
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -62,6 +76,6 @@ jobs:
           projectPath: app
           args: --target universal-apple-darwin
           tagName: ${{ github.ref_name }}
-          releaseName: 'Poster QR ${{ github.ref_name }}'
+          releaseName: 'Schema Labs Toolkit ${{ github.ref_name }}'
           releaseBody: 'Download the .dmg for your Mac.'
           releaseDraft: true

@@ -12,6 +12,11 @@
           "name": "binaries/poster-qr-sidecar",
           "sidecar": true,
           "args": true
+        },
+        {
+          "name": "binaries/yt-download-sidecar",
+          "sidecar": true,
+          "args": true
         }
       ]
     },
