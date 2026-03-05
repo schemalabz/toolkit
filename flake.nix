@@ -44,6 +44,8 @@
             bun
             rustc
             cargo
+            yt-dlp
+            ffmpeg
           ] ++ lib.optionals stdenv.isLinux ([
             webkitgtk_4_1
             gtk3
@@ -64,7 +66,8 @@
             echo "Schema Labs Toolkit"
             echo ""
             echo "Available tools:"
-            echo "  npm run poster-qr -- --help"
+            echo "  npm run poster-qr  -- --help"
+            echo "  npm run yt-download -- --help"
             echo "  npm run app:dev    # Launch desktop app in dev mode"
             echo "  npm run app:build  # Build distributable app"
             echo ""

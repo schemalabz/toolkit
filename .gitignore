@@ -1,7 +1,9 @@
 node_modules/
 dist/
 qr-output/
+data/
 *.pdf
+.env
 
 # Tauri app
 app/src-tauri/binaries/

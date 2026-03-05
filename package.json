@@ -5,17 +5,22 @@
   "description": "Collection of CLI tools for Schema Labs operations",
   "scripts": {
     "poster-qr": "tsx tools/poster-qr/cli.ts",
+    "yt-download": "tsx tools/yt-download/cli.ts",
     "build:sidecar": "bash app/build-sidecar.sh",
     "app:dev": "cd app && npm run tauri dev",
-    "app:build": "npm run build:sidecar && cd app && npm run tauri build"
+    "app:build": "npm run build:sidecar && cd app && npm run tauri build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/qrcode": "^1.5.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "jimp": "^1.6.0",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4"
