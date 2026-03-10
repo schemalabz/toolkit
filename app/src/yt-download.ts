@@ -29,6 +29,7 @@ const progress = new ProgressPanel(toolEl);
 
 // State
 let ytdlpPath: string | null = null;
+let ffmpegPath: string | null = null;
 let depsReady = false;
 
 // Persist server settings
@@ -94,15 +95,17 @@ export async function ensureDeps() {
     }, (event) => {
       if (event.type === 'deps-ready') {
         ytdlpPath = event.ytdlpPath as string;
+        ffmpegPath = event.ffmpegPath as string;
         depsReady = true;
-        ytDepsLabel.textContent = 'yt-dlp ready';
-        ytDepsDetail.textContent = ytdlpPath;
+        ytDepsLabel.textContent = 'Dependencies ready';
+        ytDepsDetail.innerHTML = `${ytdlpPath}<br>${ffmpegPath}`;
         ytDepsStatus.classList.add('deps-ok');
         ytDownloadBtn.disabled = false;
       } else if (event.type === 'status') {
         ytDepsLabel.textContent = event.message as string;
       } else if (event.type === 'download-progress') {
-        ytDepsLabel.textContent = `Downloading yt-dlp... ${event.percent}%`;
+        const dep = (event.dep as string) || 'dependency';
+        ytDepsLabel.textContent = `Downloading ${dep}... ${event.percent}%`;
       } else if (event.type === 'error') {
         ytDepsLabel.textContent = `Error: ${event.message}`;
         ytDepsStatus.classList.add('deps-error');
@@ -192,6 +195,7 @@ async function runDownload() {
       serverUrl: ytServerUrlInput.value.trim(),
       apiKey: ytApiKeyInput.value.trim(),
       ytdlpPath,
+      ffmpegPath,
     }, handleProgress, (msg) => progress.log(msg), progress.textEl);
   } finally {
     ytDownloadBtn.disabled = false;

@@ -6,32 +6,38 @@ import { createSidecar } from '../shared/sidecar-harness.js';
 import { runBackup } from './core.js';
 import type { ProgressEvent } from './types.js';
 
-function getPlatformBinaryName(): string {
+function getYtdlpBinaryName(): string {
   const platform = process.platform;
   if (platform === 'darwin') return 'yt-dlp_macos';
   if (platform === 'linux') return 'yt-dlp_linux';
   throw new Error(`Unsupported platform: ${platform}`);
 }
 
-async function ensureDeps(dataDir: string, emit: (event: Record<string, unknown>) => void): Promise<string> {
-  const binDir = path.join(dataDir, 'bin');
-  const ytdlpPath = path.join(binDir, 'yt-dlp');
+function getFfmpegBinaryName(): string {
+  const platform = process.platform;
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+  if (platform === 'darwin') return `ffmpeg-darwin-${arch}`;
+  if (platform === 'linux') return `ffmpeg-linux-${arch}`;
+  throw new Error(`Unsupported platform: ${platform}`);
+}
 
-  if (fs.existsSync(ytdlpPath)) {
-    emit({ type: 'deps-ready', ytdlpPath });
-    return ytdlpPath;
-  }
+async function downloadBinary(
+  binDir: string,
+  name: string,
+  url: string,
+  emit: (event: Record<string, unknown>) => void,
+): Promise<string> {
+  const destPath = path.join(binDir, name);
+
+  if (fs.existsSync(destPath)) return destPath;
 
   fs.mkdirSync(binDir, { recursive: true });
 
-  const binaryName = getPlatformBinaryName();
-  const url = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binaryName}`;
-
-  emit({ type: 'status', message: `Downloading yt-dlp from ${url}...` });
+  emit({ type: 'status', message: `Downloading ${name}...` });
 
   const response = await fetch(url, { redirect: 'follow' });
   if (!response.ok) {
-    throw new Error(`Failed to download yt-dlp: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to download ${name}: ${response.status} ${response.statusText}`);
   }
 
   const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
@@ -50,6 +56,7 @@ async function ensureDeps(dataDir: string, emit: (event: Record<string, unknown>
       const percent = Math.round((downloaded / contentLength) * 100);
       emit({
         type: 'download-progress',
+        dep: name,
         percent,
         downloaded: `${(downloaded / 1024 / 1024).toFixed(1)}MB`,
         total: `${(contentLength / 1024 / 1024).toFixed(1)}MB`,
@@ -58,12 +65,11 @@ async function ensureDeps(dataDir: string, emit: (event: Record<string, unknown>
   }
 
   const buffer = Buffer.concat(chunks);
-  fs.writeFileSync(ytdlpPath, buffer);
-  fs.chmodSync(ytdlpPath, 0o755);
+  fs.writeFileSync(destPath, buffer);
+  fs.chmodSync(destPath, 0o755);
 
-  emit({ type: 'status', message: 'yt-dlp downloaded successfully' });
-  emit({ type: 'deps-ready', ytdlpPath });
-  return ytdlpPath;
+  emit({ type: 'status', message: `${name} downloaded successfully` });
+  return destPath;
 }
 
 createSidecar({
@@ -73,7 +79,18 @@ createSidecar({
       emit({ type: 'error', message: 'Missing dataDir for ensure-deps action' });
       process.exit(1);
     }
-    await ensureDeps(dataDir, emit);
+
+    const binDir = path.join(dataDir, 'bin');
+
+    const ytdlpBinary = getYtdlpBinaryName();
+    const ytdlpUrl = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${ytdlpBinary}`;
+    const ytdlpPath = await downloadBinary(binDir, 'yt-dlp', ytdlpUrl, emit);
+
+    const ffmpegBinary = getFfmpegBinaryName();
+    const ffmpegUrl = `https://github.com/descriptinc/ffmpeg-ffprobe-static/releases/download/b6.1.2-rc.1/${ffmpegBinary}`;
+    const ffmpegPath = await downloadBinary(binDir, 'ffmpeg', ffmpegUrl, emit);
+
+    emit({ type: 'deps-ready', ytdlpPath, ffmpegPath });
   },
 
   'run': async (input, emit) => {
@@ -96,6 +113,7 @@ createSidecar({
 
     await runBackup(config, (event) => emit(event as unknown as Record<string, unknown>), {
       ytdlpPath: input.ytdlpPath as string | undefined,
+      ffmpegPath: input.ffmpegPath as string | undefined,
     });
   },
 });

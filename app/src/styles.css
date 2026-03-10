@@ -554,6 +554,11 @@ input[readonly] {
   border-color: #fecaca;
 }
 
+.deps-status .status-detail {
+  white-space: normal;
+  line-height: 1.5;
+}
+
 .status-detail {
   font-family: 'SF Mono', 'Menlo', monospace;
   font-size: 11px;

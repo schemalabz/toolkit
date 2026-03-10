@@ -4,19 +4,6 @@ import path from 'path';
 import type { BackupConfig, ProgressEvent, SidecarOptions } from './types.js';
 
 /**
- * Check if ffmpeg is available on the system PATH.
- */
-function hasSystemFfmpeg(): boolean {
-  try {
-    const { execSync } = require('child_process');
-    execSync('ffmpeg -version', { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Find an existing downloaded file for a video ID (any extension).
  */
 function findExistingFile(outputDir: string, videoId: string): string | null {
@@ -74,15 +61,10 @@ export async function downloadVideo(
   onProgress({ type: 'status', message: 'Downloading video...' });
 
   const ytdlp = options?.ytdlpPath || 'yt-dlp';
+  const ffmpegDir = options?.ffmpegPath ? path.dirname(options.ffmpegPath) : undefined;
 
-  // If ffmpeg is available, use the better format string that merges streams.
-  // Otherwise, use a combined-stream format that doesn't need ffmpeg.
-  const hasFfmpeg = options?.ffmpegPath || hasSystemFfmpeg();
-  const formatArgs: string[] = hasFfmpeg
-    ? ['-f', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best', '--merge-output-format', 'mp4']
-    : ['-f', 'best[height<=720][ext=mp4]/best[ext=mp4]/best'];
-
-  const ffmpegArgs: string[] = options?.ffmpegPath ? ['--ffmpeg-location', options.ffmpegPath] : [];
+  const formatArgs = ['-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best', '--merge-output-format', 'mp4'];
+  const ffmpegArgs: string[] = ffmpegDir ? ['--ffmpeg-location', ffmpegDir] : [];
 
   // Use yt-dlp's template syntax so it picks the correct extension
   const outputTemplate = path.join(outputDir, `${videoId}.%(ext)s`);
