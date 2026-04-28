@@ -1,10 +1,22 @@
 #!/usr/bin/env bun
 
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { createSidecar } from '../shared/sidecar-harness.js';
 import { runBackup } from './core.js';
 import type { ProgressEvent } from './types.js';
+
+/** Strip macOS extended attributes that block execution of downloaded binaries. */
+function clearMacosAttributes(filePath: string) {
+  if (process.platform !== 'darwin') return;
+  try {
+    execSync(`xattr -d com.apple.provenance "${filePath}" 2>/dev/null`);
+  } catch { /* attribute may not exist */ }
+  try {
+    execSync(`xattr -d com.apple.quarantine "${filePath}" 2>/dev/null`);
+  } catch { /* attribute may not exist */ }
+}
 
 function getYtdlpBinaryName(): string {
   const platform = process.platform;
@@ -29,7 +41,10 @@ async function downloadBinary(
 ): Promise<string> {
   const destPath = path.join(binDir, name);
 
-  if (fs.existsSync(destPath)) return destPath;
+  if (fs.existsSync(destPath)) {
+    clearMacosAttributes(destPath);
+    return destPath;
+  }
 
   fs.mkdirSync(binDir, { recursive: true });
 
@@ -67,6 +82,8 @@ async function downloadBinary(
   const buffer = Buffer.concat(chunks);
   fs.writeFileSync(destPath, buffer);
   fs.chmodSync(destPath, 0o755);
+
+  clearMacosAttributes(destPath);
 
   emit({ type: 'status', message: `${name} downloaded successfully` });
   return destPath;
