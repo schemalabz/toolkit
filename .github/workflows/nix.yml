@@ -1,0 +1,32 @@
+name: Nix packages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]  # macos-latest is Apple Silicon
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Build page-read
+        run: nix build .#page-read
+
+      # Assert on --json's title, not the markdown body: page-read extracts main
+      # content, so the boilerplate <h1> is stripped and body prose is brittle.
+      - name: Smoke-test page-read
+        run: ./result/bin/page-read https://example.com --json | grep -q '"title":"Example Domain"'
+
+      - name: Smoke-test playwright-run (proves Chromium launches)
+        run: nix run .#playwright-run -- .github/smoke/playwright-smoke.mjs
