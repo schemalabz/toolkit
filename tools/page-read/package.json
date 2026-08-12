@@ -1,0 +1,10 @@
+{
+  "name": "page-read",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "page-read": "cli.mjs" },
+  "dependencies": {
+    "defuddle": "^0.13.0",
+    "linkedom": "^0.18.0"
+  }
+}

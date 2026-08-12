@@ -10,3 +10,4 @@ app/src-tauri/binaries/
 app/src-tauri/target/
 app/src-tauri/gen/
 app/dist/
+tools/page-read/node_modules/

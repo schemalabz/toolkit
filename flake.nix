@@ -3,9 +3,15 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    # Pinned separately from `nixpkgs`: playwright-test and
+    # playwright-driver.browsers must come from the SAME revision or Chromium
+    # fails to launch. Used ONLY by the page-read / playwright-run packages —
+    # the dev shell stays on unstable.
+    nixpkgs-playwright.url = "github:NixOS/nixpkgs/nixos-25.05";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, nixpkgs-playwright }:
     let
       systems = [
         "x86_64-linux"
@@ -17,6 +23,16 @@
       forAllSystems =
         f: nixpkgs.lib.genAttrs systems (system: f system (import nixpkgs { inherit system; }));
     in {
+      # Web-access CLIs (see the browser-scripting skill). page-read = URL->markdown
+      # reader; playwright-run = raw Playwright scripting (screenshots, interaction).
+      # These use `nixpkgs-playwright`, NOT the unstable `nixpkgs` above.
+      packages = nixpkgs.lib.genAttrs systems (system:
+        let pwPkgs = import nixpkgs-playwright { inherit system; };
+        in {
+          page-read = import ./nix/page-read.nix { pkgs = pwPkgs; };
+          playwright-run = import ./nix/playwright-run.nix { pkgs = pwPkgs; };
+        });
+
       devShells = forAllSystems (_system: pkgs:
         let
           # Libraries that need to be on LD_LIBRARY_PATH for Tauri on Linux
