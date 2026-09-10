@@ -68,6 +68,21 @@ jobs:
             app/src-tauri/binaries/yt-download-sidecar-x86_64-apple-darwin \
             -output app/src-tauri/binaries/yt-download-sidecar-universal-apple-darwin
 
+      # The tag is the single source of truth for the release version. Without
+      # this, every build ships as the checked-in placeholder — v2026.4.1 and
+      # v2026.8.1 both produced "Schema Labs Toolkit_0.1.0_universal.dmg", so a
+      # user could not tell which release they had installed, in the .dmg
+      # filename or in Get Info. A bumped-by-hand field drifts; a stamped one
+      # cannot. Manual dispatch builds keep the checked-in dev version.
+      - name: Stamp version from tag
+        if: github.ref_type == 'tag'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CONF=app/src-tauri/tauri.conf.json
+          jq --arg v "$VERSION" '.version = $v' "$CONF" > "$CONF.tmp"
+          mv "$CONF.tmp" "$CONF"
+          echo "Bundle version: $(jq -r '.version' "$CONF")"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
