@@ -61,6 +61,13 @@
             cargo
             yt-dlp
             ffmpeg
+            # yt-dlp's JavaScript runtime for YouTube extraction ("EJS"). Without
+            # it yt-dlp falls back to deprecated player clients that YouTube now
+            # serves SABR-only, and downloads fail with HTTP 403. The CLI relies
+            # on yt-dlp auto-detecting deno here; the desktop app downloads its
+            # own copy (see tools/yt-download/sidecar.ts). Needs deno >= 2.3.0.
+            deno
+            unzip  # the yt-download sidecar extracts Deno's zipped release
           ] ++ lib.optionals stdenv.isLinux ([
             webkitgtk_4_1
             gtk3

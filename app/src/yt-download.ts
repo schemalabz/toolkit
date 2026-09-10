@@ -30,6 +30,7 @@ const progress = new ProgressPanel(toolEl);
 // State
 let ytdlpPath: string | null = null;
 let ffmpegPath: string | null = null;
+let denoPath: string | null = null;
 let depsReady = false;
 
 // Persist server settings
@@ -96,9 +97,10 @@ export async function ensureDeps() {
       if (event.type === 'deps-ready') {
         ytdlpPath = event.ytdlpPath as string;
         ffmpegPath = event.ffmpegPath as string;
+        denoPath = event.denoPath as string;
         depsReady = true;
         ytDepsLabel.textContent = 'Dependencies ready';
-        ytDepsDetail.innerHTML = `${ytdlpPath}<br>${ffmpegPath}`;
+        ytDepsDetail.innerHTML = `${ytdlpPath}<br>${ffmpegPath}<br>${denoPath}`;
         ytDepsStatus.classList.add('deps-ok');
         ytDownloadBtn.disabled = false;
       } else if (event.type === 'status') {
@@ -196,6 +198,7 @@ async function runDownload() {
       apiKey: ytApiKeyInput.value.trim(),
       ytdlpPath,
       ffmpegPath,
+      denoPath,
     }, handleProgress, (msg) => progress.log(msg), progress.textEl);
   } finally {
     ytDownloadBtn.disabled = false;

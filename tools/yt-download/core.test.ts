@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractVideoId } from './core.js';
+import { extractVideoId, buildYtdlpArgs } from './core.js';
 
 describe('extractVideoId', () => {
   it('extracts ID from youtube.com/watch?v=...', () => {
@@ -44,5 +44,34 @@ describe('extractVideoId', () => {
 
   it('throws on empty youtu.be path', () => {
     expect(() => extractVideoId('https://youtu.be/')).toThrow('Could not extract video ID');
+  });
+});
+
+describe('buildYtdlpArgs', () => {
+  const base = { outputTemplate: '/out/vid.%(ext)s', url: 'https://youtu.be/abc123' };
+
+  it('passes an explicit Deno path as yt-dlp JS runtime when available', () => {
+    const args = buildYtdlpArgs({ ...base, denoPath: '/bin/deno' });
+    const i = args.indexOf('--js-runtimes');
+    expect(i).toBeGreaterThan(-1);
+    expect(args[i + 1]).toBe('deno:/bin/deno');
+  });
+
+  it('omits the JS runtime flag when no Deno path is known', () => {
+    expect(buildYtdlpArgs(base)).not.toContain('--js-runtimes');
+  });
+
+  it('passes the ffmpeg directory, not the binary path', () => {
+    const args = buildYtdlpArgs({ ...base, ffmpegPath: '/deps/bin/ffmpeg' });
+    const i = args.indexOf('--ffmpeg-location');
+    expect(args[i + 1]).toBe('/deps/bin');
+  });
+
+  it('keeps the 720p format selector, output template and URL', () => {
+    const args = buildYtdlpArgs(base);
+    expect(args).toContain('-f');
+    expect(args.join(' ')).toContain('bestvideo[height<=720]+bestaudio');
+    expect(args[args.indexOf('-o') + 1]).toBe('/out/vid.%(ext)s');
+    expect(args[args.length - 1]).toBe('https://youtu.be/abc123');
   });
 });

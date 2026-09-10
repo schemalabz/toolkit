@@ -38,6 +38,36 @@ export function extractVideoId(url: string): string {
 }
 
 /**
+ * Build the yt-dlp argument list.
+ *
+ * `--js-runtimes deno:<path>` is what keeps YouTube downloads working. Current
+ * yt-dlp needs an external JavaScript runtime ("EJS") to solve YouTube's player
+ * challenge; without one it falls back to deprecated clients (android_vr,
+ * visionos) whose formats YouTube increasingly serves SABR-only — no media URL,
+ * so the download dies with "HTTP Error 403: Forbidden". Deno is the only
+ * runtime yt-dlp enables by default, and we point at our own copy rather than
+ * relying on PATH, which the bundled app does not control.
+ */
+export function buildYtdlpArgs(opts: {
+  outputTemplate: string;
+  url: string;
+  ffmpegPath?: string;
+  denoPath?: string;
+}): string[] {
+  const ffmpegDir = opts.ffmpegPath ? path.dirname(opts.ffmpegPath) : undefined;
+
+  return [
+    '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+    '--merge-output-format', 'mp4',
+    ...(ffmpegDir ? ['--ffmpeg-location', ffmpegDir] : []),
+    ...(opts.denoPath ? ['--js-runtimes', `deno:${opts.denoPath}`] : []),
+    '-o', opts.outputTemplate,
+    '--newline',
+    opts.url,
+  ];
+}
+
+/**
  * Download a YouTube video using yt-dlp.
  * Skips download if file already exists and is non-empty.
  */
@@ -61,22 +91,19 @@ export async function downloadVideo(
   onProgress({ type: 'status', message: 'Downloading video...' });
 
   const ytdlp = options?.ytdlpPath || 'yt-dlp';
-  const ffmpegDir = options?.ffmpegPath ? path.dirname(options.ffmpegPath) : undefined;
-
-  const formatArgs = ['-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best', '--merge-output-format', 'mp4'];
-  const ffmpegArgs: string[] = ffmpegDir ? ['--ffmpeg-location', ffmpegDir] : [];
 
   // Use yt-dlp's template syntax so it picks the correct extension
   const outputTemplate = path.join(outputDir, `${videoId}.%(ext)s`);
 
+  const args = buildYtdlpArgs({
+    outputTemplate,
+    url,
+    ffmpegPath: options?.ffmpegPath,
+    denoPath: options?.denoPath,
+  });
+
   return new Promise((resolve, reject) => {
-    const proc = spawn(ytdlp, [
-      ...formatArgs,
-      ...ffmpegArgs,
-      '-o', outputTemplate,
-      '--newline',
-      url,
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn(ytdlp, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let stderr = '';
     let destinationPath = '';

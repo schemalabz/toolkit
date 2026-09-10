@@ -16,4 +16,6 @@ export interface BackupConfig {
 export interface SidecarOptions {
   ytdlpPath?: string;
   ffmpegPath?: string;
+  /** yt-dlp's JavaScript runtime for YouTube extraction (see buildYtdlpArgs). */
+  denoPath?: string;
 }
