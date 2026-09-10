@@ -55,8 +55,7 @@
           ];
 
           buildInputs = with pkgs; [
-            nodejs
-            nodePackages.npm
+            nodejs  # provides npm
             bun
             rustc
             cargo
