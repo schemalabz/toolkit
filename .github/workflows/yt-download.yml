@@ -1,0 +1,27 @@
+name: yt-download deps
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  deps:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]  # macos-latest is Apple Silicon
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      # The desktop app ships to macOS, where the binaries yt-download downloads
+      # at runtime are subject to Gatekeeper and an OS-specific Deno asset name.
+      # This is the only place that gets exercised on real macOS before a release.
+      - name: Smoke-test dependency provisioning
+        run: bash .github/smoke/yt-download-deps.sh
