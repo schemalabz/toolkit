@@ -88,3 +88,65 @@ describe('buildOutputsFromFlags', () => {
     expect(outputs[0].clips).toEqual([{ sourceId: 'a', start: 50, end: 100 }]);
   });
 });
+
+describe('buildOutputsFromFlags - boundaries', () => {
+  it('removes from the very start', () => {
+    const outputs = buildOutputsFromFlags({
+      sourceIds: ['a'], durations: [100], remove: [{ start: 0, end: 20 }], split: [], outName: 'o',
+    });
+    expect(outputs[0].clips).toEqual([{ sourceId: 'a', start: 20, end: 100 }]);
+  });
+
+  it('removes through to the very end', () => {
+    const outputs = buildOutputsFromFlags({
+      sourceIds: ['a'], durations: [100], remove: [{ start: 80, end: 100 }], split: [], outName: 'o',
+    });
+    expect(outputs[0].clips).toEqual([{ sourceId: 'a', start: 0, end: 80 }]);
+  });
+
+  it('merges two adjacent removals into one gap', () => {
+    const outputs = buildOutputsFromFlags({
+      sourceIds: ['a'], durations: [100],
+      remove: [{ start: 20, end: 30 }, { start: 30, end: 40 }], split: [], outName: 'o',
+    });
+    expect(outputs[0].clips).toEqual([
+      { sourceId: 'a', start: 0, end: 20 },
+      { sourceId: 'a', start: 40, end: 100 },
+    ]);
+  });
+
+  it('collapses overlapping removals rather than double-counting them', () => {
+    const outputs = buildOutputsFromFlags({
+      sourceIds: ['a'], durations: [100],
+      remove: [{ start: 20, end: 50 }, { start: 30, end: 40 }], split: [], outName: 'o',
+    });
+    expect(outputs[0].clips).toEqual([
+      { sourceId: 'a', start: 0, end: 20 },
+      { sourceId: 'a', start: 50, end: 100 },
+    ]);
+  });
+
+  it('drops a source entirely consumed by a removal', () => {
+    // Joined timeline a:[0,10) b:[10,20) c:[20,30); removing 10-20 should drop b.
+    const outputs = buildOutputsFromFlags({
+      sourceIds: ['a', 'b', 'c'], durations: [10, 10, 10],
+      remove: [{ start: 10, end: 20 }], split: [], outName: 'o',
+    });
+    expect(outputs[0].clips.map((c) => c.sourceId)).toEqual(['a', 'c']);
+  });
+
+  it('produces nothing when everything is removed', () => {
+    const outputs = buildOutputsFromFlags({
+      sourceIds: ['a'], durations: [100], remove: [{ start: 0, end: 100 }], split: [], outName: 'o',
+    });
+    expect(outputs).toEqual([]);
+  });
+
+  it('ignores a split at the very start', () => {
+    const outputs = buildOutputsFromFlags({
+      sourceIds: ['a'], durations: [100], remove: [], split: [0], outName: 'p',
+    });
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0].clips).toEqual([{ sourceId: 'a', start: 0, end: 100 }]);
+  });
+});
