@@ -6,6 +6,7 @@
   "scripts": {
     "poster-qr": "tsx tools/poster-qr/cli.ts",
     "yt-download": "tsx tools/yt-download/cli.ts",
+    "video-edit": "tsx tools/video-edit/cli.ts",
     "build:sidecar": "bash app/build-sidecar.sh",
     "app:dev": "cd app && npm run tauri dev",
     "app:build": "npm run build:sidecar && cd app && npm run tauri build",

@@ -141,3 +141,80 @@ Run without flags and the CLI will prompt you for each required value:
 ```bash
 nix develop --command npm run poster-qr
 ```
+
+### video-edit
+
+Merge, split and trim recordings without desynchronising the audio and video.
+
+Replaces the standalone `video-cutter` app, which passed `-ss` as an output option with
+`-c copy` and so produced files whose video and audio start seconds apart. That defect is
+invisible until someone watches the result — or, worse, until a transcript is cut from it.
+
+#### Installing
+
+Download `video-edit` from the [latest release](../../releases/latest), then:
+
+```bash
+chmod +x video-edit
+xattr -c video-edit          # macOS: clears the quarantine flag on a downloaded binary
+mv video-edit /usr/local/bin/
+```
+
+It is a standalone binary — no Node, npm or Nix needed. ffmpeg is fetched on first run into
+a shared cache (`~/Library/Caches/schemalabs-toolkit/bin` on macOS), or skipped entirely if
+you already have ffmpeg on your PATH.
+
+Working in this repo instead? `nix develop --command npm run video-edit -- <args>` does the
+same thing. The examples below use the installed binary.
+
+#### The three jobs
+
+```bash
+# Join three recordings into one
+video-edit export \
+  --input rec-1.mp4 --input rec-2.mp4 --input rec-3.mp4 --out merged
+
+# Cut an ad break out
+video-edit export \
+  --input rec.mp4 --remove 1:02:03-1:06:15 --out clean
+
+# Split one recording into two meetings
+video-edit export \
+  --input rec.mp4 --split 2:30:00 --out part
+```
+
+They compose: several `--remove` and `--split` flags can be combined with several `--input`
+files in one command. Positions are measured on the joined timeline — what you would see
+watching the inputs back to back.
+
+#### Check before you commit to it
+
+`plan` shows what an export will produce without producing it, which matters because a long
+recording takes minutes:
+
+```bash
+video-edit plan --input rec.mp4 --remove 1:02:03-1:06:15
+```
+
+#### Check a file you were given
+
+`inspect` reports whether a recording's audio and video start together. It catches the
+offsets that hide behind an MP4 edit list, which `ffprobe` alone reports as healthy:
+
+```bash
+video-edit inspect rec.mp4
+```
+
+A healthy file ends with `verdict: ok`. Anything else, do not upload it.
+
+#### For agents
+
+Every command takes `--json` and returns structured output, and `plan` exists so an agent can
+show you what it is about to do before spending ten minutes on it. Exports are verified
+before they are reported as finished, so success is something an agent can confirm rather
+than assume.
+
+Cuts are frame-accurate: the interior of each range is copied and only the fraction of a
+second at each edge is re-encoded, so a five-hour recording exports in minutes rather than
+half an hour. If verification ever fails, the export is redone with a full re-encode and the
+result says so — there is no path that produces a bad file and calls it done.
