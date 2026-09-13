@@ -68,6 +68,25 @@ jobs:
             app/src-tauri/binaries/yt-download-sidecar-x86_64-apple-darwin \
             -output app/src-tauri/binaries/yt-download-sidecar-universal-apple-darwin
 
+      # Ship the CLI as a standalone binary too. Same bun --compile the sidecars use, but
+      # pointed at cli.ts, so a team member can download one file and run it — no Node, no
+      # npm, no Nix. ffmpeg is fetched on first run, so the binary is self-sufficient.
+      - name: Build CLI binaries
+        run: |
+          mkdir -p dist-cli
+          for tool in video-edit; do
+            bun build --compile --target=bun-darwin-arm64 \
+              tools/$tool/cli.ts --outfile dist-cli/$tool-aarch64-apple-darwin
+            bun build --compile --target=bun-darwin-x64 \
+              tools/$tool/cli.ts --outfile dist-cli/$tool-x86_64-apple-darwin
+            lipo -create \
+              dist-cli/$tool-aarch64-apple-darwin \
+              dist-cli/$tool-x86_64-apple-darwin \
+              -output dist-cli/$tool
+            rm dist-cli/$tool-aarch64-apple-darwin dist-cli/$tool-x86_64-apple-darwin
+          done
+          ls -lh dist-cli
+
       # The tag is the single source of truth for the release version. Without
       # this, every build ships as the checked-in placeholder — v2026.4.1 and
       # v2026.8.1 both produced "Schema Labs Toolkit_0.1.0_universal.dmg", so a
@@ -92,5 +111,16 @@ jobs:
           args: --target universal-apple-darwin
           tagName: ${{ github.ref_name }}
           releaseName: 'Schema Labs Toolkit ${{ github.ref_name }}'
-          releaseBody: 'Download the .dmg for your Mac.'
+          releaseBody: |
+            Download the .dmg for the desktop app.
+
+            `video-edit` is the command line tool. Download it, then:
+            `chmod +x video-edit && xattr -c video-edit && mv video-edit /usr/local/bin/`
           releaseDraft: true
+
+      # Uploaded separately: tauri-action only publishes what it builds itself.
+      - name: Attach CLI binaries to the release
+        if: github.ref_type == 'tag'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" dist-cli/* --clobber
