@@ -14,6 +14,7 @@ mkdir -p "$OUT_DIR"
 SIDECARS=(
   "tools/poster-qr/sidecar.ts:poster-qr-sidecar"
   "tools/yt-download/sidecar.ts:yt-download-sidecar"
+  "tools/video-edit/sidecar.ts:video-edit-sidecar"
 )
 
 build_sidecar() {

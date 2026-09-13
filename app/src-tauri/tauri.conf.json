@@ -32,7 +32,8 @@
     ],
     "externalBin": [
       "binaries/poster-qr-sidecar",
-      "binaries/yt-download-sidecar"
+      "binaries/yt-download-sidecar",
+      "binaries/video-edit-sidecar"
     ],
     "macOS": {
       "dmg": {
