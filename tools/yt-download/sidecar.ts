@@ -1,176 +1,19 @@
 #!/usr/bin/env bun
 
-import { execSync, spawnSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { spawnSync } from 'child_process';
 import { createSidecar } from '../shared/sidecar-harness.js';
+import {
+  clearMacosAttributes,
+  denoAssetName,
+  ensureBinary,
+  ensureZippedBinary,
+  ffmpegAssetName,
+  resolveBinDir,
+  ytdlpAssetName,
+} from '../shared/binaries.js';
 import { runBackup } from './core.js';
-import type { ProgressEvent } from './types.js';
 
-/** Strip macOS extended attributes that block execution of downloaded binaries. */
-function clearMacosAttributes(filePath: string) {
-  if (process.platform !== 'darwin') return;
-  try {
-    execSync(`xattr -d com.apple.provenance "${filePath}" 2>/dev/null`);
-  } catch { /* attribute may not exist */ }
-  try {
-    execSync(`xattr -d com.apple.quarantine "${filePath}" 2>/dev/null`);
-  } catch { /* attribute may not exist */ }
-}
-
-function getYtdlpBinaryName(): string {
-  const platform = process.platform;
-  if (platform === 'darwin') return 'yt-dlp_macos';
-  if (platform === 'linux') return 'yt-dlp_linux';
-  throw new Error(`Unsupported platform: ${platform}`);
-}
-
-function getFfmpegBinaryName(): string {
-  const platform = process.platform;
-  const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
-  if (platform === 'darwin') return `ffmpeg-darwin-${arch}`;
-  if (platform === 'linux') return `ffmpeg-linux-${arch}`;
-  throw new Error(`Unsupported platform: ${platform}`);
-}
-
-/** Deno release assets are Rust target triples, and always zipped. */
-function getDenoAssetName(): string {
-  const platform = process.platform;
-  const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
-  if (platform === 'darwin') return `deno-${arch}-apple-darwin.zip`;
-  if (platform === 'linux') return `deno-${arch}-unknown-linux-gnu.zip`;
-  throw new Error(`Unsupported platform: ${platform}`);
-}
-
-async function fetchToBuffer(
-  name: string,
-  url: string,
-  emit: (event: Record<string, unknown>) => void,
-): Promise<Buffer> {
-  emit({ type: 'status', message: `Downloading ${name}...` });
-
-  const response = await fetch(url, { redirect: 'follow' });
-  if (!response.ok) {
-    throw new Error(`Failed to download ${name}: ${response.status} ${response.statusText}`);
-  }
-
-  const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error('No response body');
-
-  const chunks: Uint8Array[] = [];
-  let downloaded = 0;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    downloaded += value.length;
-    if (contentLength > 0) {
-      const percent = Math.round((downloaded / contentLength) * 100);
-      emit({
-        type: 'download-progress',
-        dep: name,
-        percent,
-        downloaded: `${(downloaded / 1024 / 1024).toFixed(1)}MB`,
-        total: `${(contentLength / 1024 / 1024).toFixed(1)}MB`,
-      });
-    }
-  }
-
-  return Buffer.concat(chunks);
-}
-
-/** Download a bare executable. */
-async function downloadBinary(
-  binDir: string,
-  name: string,
-  url: string,
-  emit: (event: Record<string, unknown>) => void,
-): Promise<string> {
-  const destPath = path.join(binDir, name);
-
-  if (fs.existsSync(destPath)) {
-    clearMacosAttributes(destPath);
-    return destPath;
-  }
-
-  fs.mkdirSync(binDir, { recursive: true });
-
-  const buffer = await fetchToBuffer(name, url, emit);
-  fs.writeFileSync(destPath, buffer);
-  fs.chmodSync(destPath, 0o755);
-
-  clearMacosAttributes(destPath);
-
-  emit({ type: 'status', message: `${name} downloaded successfully` });
-  return destPath;
-}
-
-/**
- * Extract a zip using whatever the host provides.
- *
- * There is no bundled zip library, so this shells out. `unzip` is the usual
- * answer but is not guaranteed to be on PATH (it is absent from our own Nix dev
- * shell); macOS always ships `ditto`. Try each and report both failures rather
- * than dying on a bare "command not found".
- */
-function extractZip(zipPath: string, destDir: string): void {
-  const candidates: Array<{ cmd: string; args: string[] }> = [
-    // -j flattens any directory structure, -o overwrites a half-extracted retry
-    { cmd: 'unzip', args: ['-o', '-q', '-j', zipPath, '-d', destDir] },
-    ...(process.platform === 'darwin'
-      ? [{ cmd: 'ditto', args: ['-x', '-k', zipPath, destDir] }]
-      : []),
-  ];
-
-  const failures: string[] = [];
-
-  for (const { cmd, args } of candidates) {
-    const result = spawnSync(cmd, args, { encoding: 'utf-8' });
-    if (!result.error && result.status === 0) return;
-    failures.push(`${cmd}: ${result.error?.message || result.stderr?.trim() || `exit ${result.status}`}`);
-  }
-
-  throw new Error(`Could not extract ${path.basename(zipPath)} — ${failures.join('; ')}`);
-}
-
-/** Download an executable that ships inside a zip archive (Deno). */
-async function downloadZippedBinary(
-  binDir: string,
-  name: string,
-  url: string,
-  emit: (event: Record<string, unknown>) => void,
-): Promise<string> {
-  const destPath = path.join(binDir, name);
-
-  if (fs.existsSync(destPath)) {
-    clearMacosAttributes(destPath);
-    return destPath;
-  }
-
-  fs.mkdirSync(binDir, { recursive: true });
-
-  const buffer = await fetchToBuffer(name, url, emit);
-  const zipPath = path.join(binDir, `${name}.zip`);
-  fs.writeFileSync(zipPath, buffer);
-
-  try {
-    extractZip(zipPath, binDir);
-  } finally {
-    fs.rmSync(zipPath, { force: true });
-  }
-
-  if (!fs.existsSync(destPath)) {
-    throw new Error(`${name} archive did not contain an executable named ${name}`);
-  }
-
-  fs.chmodSync(destPath, 0o755);
-  clearMacosAttributes(destPath);
-
-  emit({ type: 'status', message: `${name} downloaded successfully` });
-  return destPath;
-}
+const FFMPEG_RELEASE = 'https://github.com/descriptinc/ffmpeg-ffprobe-static/releases/download/b6.1.2-rc.1';
 
 /**
  * Keep yt-dlp current via its own self-update.
@@ -208,22 +51,19 @@ createSidecar({
       process.exit(1);
     }
 
-    const binDir = path.join(dataDir, 'bin');
+    const binDir = resolveBinDir(dataDir);
 
-    const ytdlpBinary = getYtdlpBinaryName();
-    const ytdlpUrl = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${ytdlpBinary}`;
-    const ytdlpPath = await downloadBinary(binDir, 'yt-dlp', ytdlpUrl, emit);
+    const ytdlpUrl = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${ytdlpAssetName()}`;
+    const ytdlpPath = await ensureBinary(binDir, 'yt-dlp', ytdlpUrl, emit);
     refreshYtdlp(ytdlpPath, emit);
 
-    const ffmpegBinary = getFfmpegBinaryName();
-    const ffmpegUrl = `https://github.com/descriptinc/ffmpeg-ffprobe-static/releases/download/b6.1.2-rc.1/${ffmpegBinary}`;
-    const ffmpegPath = await downloadBinary(binDir, 'ffmpeg', ffmpegUrl, emit);
+    const ffmpegUrl = `${FFMPEG_RELEASE}/${ffmpegAssetName('ffmpeg')}`;
+    const ffmpegPath = await ensureBinary(binDir, 'ffmpeg', ffmpegUrl, emit);
 
     // yt-dlp's JavaScript runtime — without it YouTube extraction falls back to
     // deprecated clients and 403s. See buildYtdlpArgs in core.ts.
-    const denoAsset = getDenoAssetName();
-    const denoUrl = `https://github.com/denoland/deno/releases/latest/download/${denoAsset}`;
-    const denoPath = await downloadZippedBinary(binDir, 'deno', denoUrl, emit);
+    const denoUrl = `https://github.com/denoland/deno/releases/latest/download/${denoAssetName()}`;
+    const denoPath = await ensureZippedBinary(binDir, 'deno', denoUrl, emit);
 
     emit({ type: 'deps-ready', ytdlpPath, ffmpegPath, denoPath });
   },
